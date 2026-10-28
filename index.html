@@ -80,7 +80,6 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <div class="wrap">
   <header>
     <h1>Kling <span>Prompt</span> Builder</h1>
-    <button id="aikey" class="btn ghost" style="width:auto;padding:6px 12px;font-size:13px;float:right">Add AI key</button>
     <p class="sub">Describe a scene, fill the gaps, get a ready-to-paste video prompt.</p>
   </header>
 
@@ -1605,7 +1604,7 @@ $("sh-more").onclick=async()=>{
 
 $("breakdown").onclick=async()=>{
   const scene=$("scene").value.trim(); if(!scene){$("status").textContent="Type a scene first.";return}
-  if(!sample){$("status").textContent="Add your Gemini key (tap Add AI key at the top) to use scene breakdown. You can still fill each field by hand.";return}
+  if(!sample){$("status").textContent="AI isn't available right now. You can still fill each field by hand.";return}
   const b=$("breakdown"); b.disabled=true; $("status").textContent="Breaking down your scene…";
   try{
     const r=await sample.json(`Break this scene description into prompt fields for Kling AI video generation.
@@ -1619,7 +1618,7 @@ Return JSON: {"subject":{"value":"","suggestions":["","",""]},"action":{...},"se
     const n=6-filled;
     $("status").textContent=`Filled ${filled} of 6 fields.`+(n?` ${n} need your direction — tap the orange ones.`:"");
     render();
-  }catch(e){$("status").textContent=e&&e.code==="rate_limited"?"Too many requests — wait a moment and try again.":"Couldn't break that down. Try again or fill the fields by hand."}
+  }catch(e){$("status").textContent=e&&e.code==="rate_limited"?"Daily AI limit reached. Try again tomorrow, or fill the fields by hand.":"Couldn't break that down. Try again or fill the fields by hand."}
   b.disabled=false;
 };
 
@@ -1670,19 +1669,17 @@ $("scene").addEventListener("input",save);
 
 render();
 
-/* ===== Gemini adapter (replaces Claude-only AI on the phone app) ===== */
-function getKey(){try{return localStorage.getItem("gemKey")||""}catch(e){return""}}
-function getModel(){try{return localStorage.getItem("gemModel")||"gemini-flash-latest"}catch(e){return"gemini-flash-latest"}}
+/* ===== AI via Supabase function (key stays on the server) ===== */
+const AI_URL="https://shiybubbqkdzopnycmxq.supabase.co/functions/v1/kling-ai";
 async function gemCall(prompt,json){
-  const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+getModel()+":generateContent?key="+encodeURIComponent(getKey()),{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:json?{responseMimeType:"application/json"}:{}})});
-  if(!r.ok){const e=new Error("Gemini error "+r.status);e.code=r.status===429?"rate_limited":"error";throw e}
-  const d=await r.json();return (d.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
+  const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,json:!!json})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){const e=new Error(d.error||("AI error "+r.status));e.code=r.status===429?"rate_limited":"error";throw e}
+  return d.text||"";
 }
-function makeSample(){if(!getKey())return null;const f=async(p,o)=>{const t=await gemCall(typeof p==="string"?p:p.map(m=>m.content).join("\n"));o?.onText?.({text:t});return{text:t}};f.json=async p=>{const t=await gemCall(p,true);return JSON.parse(t.replace(/^```json|```$/g,""))};return f}
+function makeSample(){const f=async(p,o)=>{const t=await gemCall(typeof p==="string"?p:p.map(m=>m.content).join("\n"));o?.onText?.({text:t});return{text:t}};f.json=async p=>{const t=await gemCall(p,true);return JSON.parse(t.replace(/^```json|```$/g,""))};return f}
 sample=makeSample();
-document.getElementById("aikey").onclick=()=>{const k=prompt("Paste your Gemini API key (stored only on this phone). Leave blank to remove.",getKey());if(k===null)return;try{k.trim()?localStorage.setItem("gemKey",k.trim()):localStorage.removeItem("gemKey")}catch(e){}sample=makeSample();document.getElementById("aikey").textContent=getKey()?"AI key ✓":"Add AI key"};
-document.getElementById("aikey").textContent=getKey()?"AI key ✓":"Add AI key";
+try{localStorage.removeItem("gemKey")}catch(e){}
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 
 </script>
