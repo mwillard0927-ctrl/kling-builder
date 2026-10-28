@@ -1618,7 +1618,7 @@ Return JSON: {"subject":{"value":"","suggestions":["","",""]},"action":{...},"se
     const n=6-filled;
     $("status").textContent=`Filled ${filled} of 6 fields.`+(n?` ${n} need your direction — tap the orange ones.`:"");
     render();
-  }catch(e){$("status").textContent=e&&e.code==="rate_limited"?"Daily AI limit reached. Try again tomorrow, or fill the fields by hand.":"Couldn't break that down. Try again or fill the fields by hand."}
+  }catch(e){$("status").textContent=e&&e.code==="rate_limited"?"Daily AI limit reached. Try again tomorrow, or fill the fields by hand.":"Couldn't break that down ("+((e&&e.message)||"unknown error")+"). Try again or fill the fields by hand."}
   b.disabled=false;
 };
 
