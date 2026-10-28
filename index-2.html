@@ -1,0 +1,1690 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#5b3df5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kling Builder">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+</head><body>
+<title>Kling Prompt Builder</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+/* Layout: one phone column — scene box, 2x3 field grid, prompt output; fields open a bottom sheet */
+:root{
+  --bg:#f3f2f6; --panel:#ffffff; --fg:#17151f; --muted:#6b6878; --line:#dddbe5;
+  --accent:#5b3df5; --accent-ink:#fff; --warn:#c2410c; --warn-bg:#fff1e8; --ok:#15803d;
+  --display:"Syne",system-ui,sans-serif; --body:"Figtree",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f0e14; --panel:#1a1822; --fg:#ecebf3; --muted:#9a97a8; --line:#2c2938;
+  --accent:#8f7bff; --accent-ink:#0f0e14; --warn:#fb923c; --warn-bg:#2a1a10; --ok:#4ade80; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f0e14; --panel:#1a1822; --fg:#ecebf3; --muted:#9a97a8; --line:#2c2938;
+  --accent:#8f7bff; --accent-ink:#0f0e14; --warn:#fb923c; --warn-bg:#2a1a10; --ok:#4ade80; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px;display:flex;flex-direction:column;gap:22px}
+h1{font-family:var(--display);font-weight:800;font-size:28px;letter-spacing:-.02em;margin:0}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:4px 0 0;font-size:14px}
+.label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+textarea{width:100%;box-sizing:border-box;font:inherit;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;resize:vertical;min-height:96px}
+textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{font:600 15px var(--body);border:0;border-radius:12px;padding:13px 16px;cursor:pointer;background:var(--accent);color:var(--accent-ink);width:100%}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px}
+.row .btn{flex:1}
+.status{font-size:13px;color:var(--muted);min-height:1em}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;color:var(--fg);font:inherit;display:flex;flex-direction:column;gap:6px;min-width:0;min-height:96px}
+.field .name{font-family:var(--display);font-weight:600;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.field .val{font-size:13px;color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.field.set{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.field.set .val{color:var(--fg)}
+.field.need{border-color:var(--warn);background:var(--warn-bg)}
+.chip{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;white-space:nowrap}
+.chip.need{background:var(--warn);color:var(--panel)}
+.chip.ok{color:var(--ok);border:1px solid currentColor}
+.out{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.out p{margin:0;font-family:var(--mono);font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.scrim{position:fixed;inset:0;background:rgb(0 0 0 / .45);z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--panel);border-radius:18px 18px 0 0;padding:18px max(16px,env(safe-area-inset-left,0px)) calc(18px + env(safe-area-inset-bottom,0px));max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px;box-shadow:0 -10px 40px rgb(0 0 0 / .25);max-height:85%;overflow:auto}
+.sheet h2{font-family:var(--display);font-size:20px;margin:0}
+.hint{color:var(--muted);font-size:13px;margin:0}
+.sugs{display:flex;flex-direction:column;gap:8px}
+.sug{text-align:left;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+.sug:hover{border-color:var(--accent)}
+.need-note{color:var(--warn);font-size:13px;font-weight:600;margin:0}
+.libhead{display:flex;align-items:center;gap:10px}
+.back{font:600 14px var(--body);background:none;border:0;color:var(--accent);cursor:pointer;padding:4px 0}
+.demo{display:flex;flex-direction:column;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:10px}
+.demo canvas{width:100%;aspect-ratio:16/9;border-radius:10px;display:block;max-width:100%}
+.demo h3{font-family:var(--display);font-size:17px;margin:0}
+.demo p{margin:0;font-size:13.5px;color:var(--muted)}
+.demo code{font-family:var(--mono);font-size:12.5px;color:var(--fg)}
+.demo a{color:var(--accent);font-size:13px;font-weight:600;text-decoration:none}
+.group{display:flex;flex-direction:column;gap:6px}
+.search{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box}
+details summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--accent);padding:4px 0}
+input[type=range]{width:100%;accent-color:var(--accent)}
+#lib .demo,#xb .demo{position:sticky;top:-18px;z-index:2}
+.moves{display:flex;flex-wrap:wrap;gap:6px}
+.move{font:500 13px var(--body);background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:99px;padding:7px 12px;cursor:pointer}
+.move.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .2s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Kling <span>Prompt</span> Builder</h1>
+    <button id="aikey" class="btn ghost" style="width:auto;padding:6px 12px;font-size:13px;float:right">Add AI key</button>
+    <p class="sub">Describe a scene, fill the gaps, get a ready-to-paste video prompt.</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <label class="label" for="scene">1 · Describe your scene</label>
+    <textarea id="scene" placeholder="e.g. An old blacksmith hammering a glowing sword late at night, sparks everywhere"></textarea>
+    <button class="btn" id="breakdown">Break it down</button>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <div class="label">2 · Fields <span id="needcount"></span></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <div class="label">3 · Final prompt</div>
+    <button class="btn" id="gen">Generate prompt</button>
+    <div class="out" id="out" hidden>
+      <p id="prompt"></p>
+      <div class="row"><button class="btn ghost" id="copy">Copy</button><button class="btn ghost" id="reset">Start over</button></div>
+    </div>
+  </section>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sh-title">
+  <h2 id="sh-title"></h2>
+  <p class="hint" id="sh-hint"></p>
+  <p class="need-note" id="sh-need" hidden>This field needs direction. Type your own or pick a suggestion.</p>
+  <textarea id="sh-input" style="min-height:80px"></textarea>
+  <div class="label">Suggestions</div>
+  <div class="sugs" id="sh-sugs"></div>
+  <button class="btn ghost" id="sh-more">More suggestions</button>
+  <button class="btn ghost" id="sh-xb" hidden></button>
+  <button class="btn ghost" id="sh-lib" hidden>Open camera builder (160+ shots with demos)</button>
+  <div class="row"><button class="btn ghost" id="sh-clear">Clear</button><button class="btn" id="sh-save">Save</button></div>
+</div>
+
+<div class="sheet" id="lib" hidden role="dialog" aria-modal="true" aria-labelledby="lib-title">
+  <div class="libhead"><button class="back" id="lib-back">‹ Back to Camera</button></div>
+  <h2 id="lib-title">Camera builder</h2>
+  <p class="hint">Pick a move, flip its toggles, stack a size, angle, lens, focus, time and framing. The demo updates live.</p>
+  <div class="demo" id="demo">
+    <canvas id="cv" width="640" height="360" aria-label="Camera move demo"></canvas>
+    <h3 id="d-name"></h3>
+    <p id="d-desc"></p>
+    <p>Adds: <code id="d-phrase"></code></p>
+    <div class="row"><button class="btn ghost" id="d-reset">Reset</button><button class="btn" id="d-use">Use this</button></div>
+    <a id="d-real" target="_blank" rel="noopener">Watch real footage examples ↗</a>
+  </div>
+
+  <div class="group">
+    <label class="label" for="shot-search">Find a shot by name (<span id="shot-count"></span>)</label>
+    <input id="shot-search" class="search" type="search" placeholder="e.g. vertigo, snorricam, cowboy, bullet time">
+    <div id="shot-results" class="moves"></div>
+    <details id="all-shots"><summary>Browse every named shot</summary><div id="all-list" style="display:flex;flex-direction:column;gap:12px;margin-top:10px"></div></details>
+  </div>
+
+  <div class="group"><div class="label">Move</div><div class="moves" id="b-move"></div></div>
+  <div id="b-opts" style="display:flex;flex-direction:column;gap:10px"></div>
+  <div class="group"><div class="label">Speed</div><div class="moves" id="b-speed"></div></div>
+  <div class="group">
+    <label class="label" for="b-size">Shot size · <span id="b-size-l"></span></label>
+    <input type="range" id="b-size" min="0" max="12" step="1" value="0">
+  </div>
+  <div class="group"><div class="label">Angle</div><div class="moves" id="b-an"></div></div>
+  <div class="group"><div class="label">Lens</div><div class="moves" id="b-ln"></div></div>
+  <div class="group"><div class="label">Focus</div><div class="moves" id="b-fc"></div></div>
+  <div class="group"><div class="label">Time</div><div class="moves" id="b-tm"></div></div>
+  <div class="group"><div class="label">Framing</div><div class="moves" id="b-fr"></div></div>
+</div>
+
+<script>
+/* ================= Camera builder: data ================= */
+const BASES={
+ static:{n:"Static",opts:{v:[["locked","Locked-off"],["passby","Pass-by"]]}},
+ dolly:{n:"Dolly",opts:{dir:[["in","In"],["out","Out"]],v:[["dolly","Dolly"],["push","Push-in"],["reveal","Pull-back reveal"]]}},
+ zoom:{n:"Zoom",opts:{dir:[["in","In"],["out","Out"]],v:[["smooth","Smooth"],["snap","Snap"],["crash","Crash"]]}},
+ pan:{n:"Pan",opts:{dir:[["left","Left"],["right","Right"]],v:[["std","Standard"],["whip","Whip / swish"],["full","360°"]]}},
+ tilt:{n:"Tilt",opts:{dir:[["up","Up"],["down","Down"]],v:[["std","Standard"],["whip","Whip tilt"],["reveal","Feet-to-face reveal"]]}},
+ truck:{n:"Truck / Crab",opts:{dir:[["left","Left"],["right","Right"]],v:[["truck","Truck"],["crab","Crab"],["slider","Slider"],["drift","Parallax drift"]]}},
+ crane:{n:"Crane / Jib",opts:{dir:[["up","Up"],["down","Down"],["swing","Swing across"]],v:[["crane","Crane"],["pedestal","Pedestal"],["boom","Boom"],["jib","Jib"],["vslider","Vertical slider"],["robot","Robot arm"],["wire","Cable cam"]]}},
+ orbit:{n:"Orbit / Arc",opts:{dir:[["right","Clockwise"],["left","Counter-clockwise"]],h:[["level","Level"],["rise","Rising (spiral)"],["fall","Descending"]],v:[["arc","Arc"],["full","Full 360°"],["bullet","Bullet time"]]}},
+ follow:{n:"Follow / Track",opts:{pos:[["side","Alongside"],["ahead","Leading (ahead)"],["behind","Following (behind)"]],rig:[["dolly","Dolly track"],["steadicam","Steadicam"],["gimbal","Gimbal"],["handheld","Handheld"],["car","Car rig"],["buggy","Buggy cam"],["trailer","Process trailer"]]}},
+ drone:{n:"Drone / Aerial",opts:{v:[["rise","Rise"],["dive","Dive"],["flyover","Flyover"],["reveal","Reveal"],["fpv","FPV"],["heli","Helicopter"],["topdown","Top-down"]]}},
+ roll:{n:"Roll",opts:{v:[["dutch","Dutch roll"],["full","360° roll"],["barrel","Barrel roll"],["upside","Upside down"]]}},
+ dzoom:{n:"Dolly zoom",opts:{dir:[["in","Dolly in / zoom out"],["out","Dolly out / zoom in"]]}},
+ shake:{n:"Handheld / Shake",opts:{v:[["subtle","Subtle"],["shoulder","Shoulder rig"],["shaky","Shaky cam"],["impact","Impact hit"],["quake","Earthquake"]]}},
+ through:{n:"Fly-through",opts:{v:[["window","Window"],["door","Doorway"],["gap","Narrow gap"],["keyhole","Keyhole"],["crowd","Crowd"]]}},
+ mounted:{n:"POV / Mounted",opts:{v:[["pov","POV"],["helmet","Helmet / action cam"],["body","Body cam"],["snorri","Snorricam"],["dash","Dashcam"],["fallen","Fallen camera"]]}},
+ oner:{n:"Long take / Wipes",opts:{v:[["long","One-take"],["wipe","Hidden wipe"],["fgwipe","Foreground wipe-by"]]}}
+};
+const SPEEDS=[["slow","Slow"],["med","Medium"],["fast","Fast"]];
+const SIZES=[["Not set",""],["Extreme long","extreme long shot",.45,0],["Establishing","establishing shot",.6,10],["Long / wide","wide shot",.8,0],["Full","full shot",1.15,-10],["Medium long","medium long shot",1.4,-20],["Cowboy","cowboy shot, framed mid-thigh up",1.6,-25],["Medium","medium shot",1.95,-40],["Medium close-up","medium close-up",2.6,-58],["Choker","choker close-up, neck up",3,-68],["Close-up","close-up",3.6,-76],["Extreme close-up","extreme close-up",5.5,-82],["Macro","macro shot on the eye",9,-82,7]];
+const ANGLES=[["none","None",""],["gods","God's eye","god's eye view directly overhead",{ty:-320,py:230,zoom:.7,sy:.55}],["bird","Bird's eye","bird's-eye view",{ty:-240,py:150,zoom:.8,sy:.75}],["high","High","high-angle shot looking down",{ty:-130,py:70}],["eye","Eye level","eye-level shot",{}],["shoulder","Shoulder level","shoulder-level shot",{ty:20}],["hip","Hip level","hip-level shot",{ty:50,py:-10}],["knee","Knee level","knee-level shot",{ty:80,py:-30}],["low","Low","low-angle shot looking up",{ty:110,py:-70,zoom:1.15,sy:1.12}],["ground","Ground level","ground-level shot",{ty:150,py:-40,sy:1.1}],["worm","Worm's eye","worm's-eye view looking straight up",{ty:190,py:-150,zoom:1.3,sy:1.3}],["dutch","Dutch","dutch angle",{rot:.26}]];
+const LENSES=[["none","None",""],["fish","Fisheye","fisheye lens",1.7,.75],["ultra","Ultra-wide","ultra-wide lens",1.5,.8],["wide","Wide","wide-angle lens",1.3,.9],["normal","50mm","50mm normal lens",1,1],["tele","Telephoto","telephoto lens",.5,1.35],["xtele","Extreme tele","extreme telephoto lens with compressed depth",.25,1.8],["ana","Anamorphic","anamorphic lens with horizontal lens flares",1.1,1],["ts","Tilt-shift","tilt-shift miniature effect",1,.9]];
+const FOCUS=[["none","None",""],["deep","Deep focus","deep focus, everything sharp"],["shallow","Shallow DOF","shallow depth of field with creamy bokeh"],["rack","Rack focus","rack focus from foreground to the subject"],["pull","Focus pull","focus pulls from blurry to sharp"],["split","Split diopter","split diopter, foreground and background both sharp"],["oof","Out of focus","dreamy out-of-focus shot"],["diff","Diffusion","soft diffusion glow"]];
+const TIMES=[["none","None",""],["slow","Slow-mo","slow motion"],["xslow","Extreme slow-mo","extreme slow motion"],["fast","Fast motion","fast motion"],["ramp","Speed ramp","speed ramp from real time into slow motion and back"],["lapse","Time-lapse","time-lapse"],["hyper","Hyperlapse","moving hyperlapse"],["freeze","Freeze frame","freeze frame"],["stop","Stop motion","stop-motion animation style"],["shutter","Slow shutter","slow-shutter motion blur trails"],["rev","Reverse","reverse motion"]];
+const FRAMES=[["none","None",""],["single","Single","single shot"],["clean","Clean single","clean single"],["dirty","Dirty single","dirty single with a foreground shoulder"],["two","Two shot","two shot"],["three","Three shot","three shot"],["group","Group","group shot"],["master","Master","master shot covering the whole scene"],["ots","Over the shoulder","over-the-shoulder shot"],["overbody","Over the body","over-the-body shot"],["profile","Profile","profile shot"],["negative","Negative space","subject small in heavy negative space"],["thirds","Rule of thirds","subject on the rule-of-thirds line"],["center","Symmetrical","symmetrical center framing"],["fwf","Frame in frame","framed within a doorway"],["foliage","Through foliage","shot through foreground foliage"],["reflect","Reflection","reflection in still water"],["silhouette","Silhouette","backlit silhouette"],["insert","Insert","insert shot of a small detail"],["cutaway","Cutaway","cutaway to a nearby detail"],["reaction","Reaction","reaction shot"],["fourth","4th wall","subject breaks the fourth wall, looking into the lens"],["split","Split screen","split screen"],["iris","Iris","iris-in transition"],["binocular","Binocular","binocular view"],["sniper","Sniper scope","sniper scope view with crosshairs"],["vignette","Vignette","heavy vignette"],["tunnel","Tunnel vision","tunnel vision"],["limbo","Limbo","limbo shot against a plain seamless backdrop"]];
+
+/* Named shots: [name, group, description, config] */
+const SHOTS=[
+["Static shot","Movement","Camera never moves; only the scene does.",{m:"static"}],
+["Locked-off tripod shot","Movement","Rock-solid tripod frame with zero drift.",{m:"static",o:{v:"locked"}}],
+["Pass-by shot","Movement","Fixed camera as the subject walks close past the lens.",{m:"static",o:{v:"passby"}}],
+["Dolly in","Movement","Camera physically moves toward the subject; depth shifts.",{m:"dolly",o:{dir:"in"}}],
+["Dolly out","Movement","Camera physically moves away from the subject.",{m:"dolly",o:{dir:"out"}}],
+["Push in","Movement","Slow, subtle move in to build tension or emotion.",{m:"dolly",o:{v:"push"},sp:"slow"}],
+["Emotional push-in on face","Movement","Slow push into a close-up during a key moment.",{m:"dolly",o:{v:"push"},sp:"slow",sz:9}],
+["Pull-back reveal","Movement","Starts tight, backs away to reveal something unexpected.",{m:"dolly",o:{v:"reveal"}}],
+["Slider shot","Movement","Short, smooth sideways glide on a rail.",{m:"truck",o:{v:"slider"}}],
+["Vertical slider","Movement","Short smooth vertical glide up or down.",{m:"crane",o:{v:"vslider"}}],
+["Zoom in","Movement","Lens zooms; flat enlargement with no depth shift.",{m:"zoom",o:{dir:"in"}}],
+["Zoom out","Movement","Lens widens from a fixed position.",{m:"zoom",o:{dir:"out"}}],
+["Slow creep zoom","Movement","Barely noticeable zoom that builds unease.",{m:"zoom",o:{dir:"in"},sp:"slow"}],
+["Snap zoom","Movement","Instant punch-in zoom.",{m:"zoom",o:{dir:"in",v:"snap"},sp:"fast"}],
+["Crash zoom","Movement","Violent fast zoom, often with a shake.",{m:"zoom",o:{dir:"in",v:"crash"},sp:"fast"}],
+["Pan left","Movement","Camera turns left on its axis.",{m:"pan",o:{dir:"left"}}],
+["Pan right","Movement","Camera turns right on its axis.",{m:"pan",o:{dir:"right"}}],
+["Whip pan","Movement","Very fast pan that blurs, used as a transition.",{m:"pan",o:{v:"whip"}}],
+["Swish pan","Movement","Another name for a whip pan.",{m:"pan",o:{v:"whip",dir:"left"}}],
+["360 table pan","Movement","Camera spins a full circle in place.",{m:"pan",o:{v:"full"}}],
+["Tilt up","Movement","Camera pivots upward from a fixed spot.",{m:"tilt",o:{dir:"up"}}],
+["Tilt down","Movement","Camera pivots downward from a fixed spot.",{m:"tilt",o:{dir:"down"}}],
+["Whip tilt","Movement","Fast vertical tilt with blur.",{m:"tilt",o:{v:"whip"}}],
+["Tilt-up reveal","Movement","Starts on the feet and tilts up to the face.",{m:"tilt",o:{v:"reveal"}}],
+["Truck left","Movement","Camera slides sideways left; near objects move faster.",{m:"truck",o:{dir:"left"}}],
+["Truck right","Movement","Camera slides sideways right.",{m:"truck",o:{dir:"right"}}],
+["Crab shot","Movement","Sideways move, usually on a dolly, tracking action.",{m:"truck",o:{v:"crab"}}],
+["Parallax drift","Movement","Slow sideways drift that shows depth layers.",{m:"truck",o:{v:"drift"},sp:"slow"}],
+["Pedestal up","Movement","Camera rises straight up, no tilt.",{m:"crane",o:{v:"pedestal",dir:"up"}}],
+["Pedestal down","Movement","Camera lowers straight down, no tilt.",{m:"crane",o:{v:"pedestal",dir:"down"}}],
+["Crane up","Movement","Rises up high, revealing the scene from above.",{m:"crane",o:{dir:"up"}}],
+["Crane down","Movement","Descends from high down to the subject.",{m:"crane",o:{dir:"down"}}],
+["Boom shot","Movement","Sweeping vertical arc on a boom arm.",{m:"crane",o:{v:"boom"}}],
+["Jib swing","Movement","Jib arm swings across the scene in an arc.",{m:"crane",o:{v:"jib",dir:"swing"}}],
+["Robotic arm shot","Movement","Fast, precise motion-control move that rises and arcs.",{m:"crane",o:{v:"robot"},sp:"fast"}],
+["Cable cam / Spidercam","Movement","Camera glides overhead on suspended wires.",{m:"crane",o:{v:"wire"}}],
+["Arc shot","Movement","Camera moves in a partial circle around the subject.",{m:"orbit"}],
+["360° orbit","Movement","Full circle around the subject.",{m:"orbit",o:{v:"full"}}],
+["Spiral up","Movement","Orbits while rising.",{m:"orbit",o:{h:"rise"}}],
+["Spiral down","Movement","Orbits while descending.",{m:"orbit",o:{h:"fall"}}],
+["Bullet time","Movement","Action frozen mid-air while the camera orbits.",{m:"orbit",o:{v:"bullet"}}],
+["Tracking shot","Movement","Camera moves alongside a moving subject.",{m:"follow",o:{pos:"side"}}],
+["Leading shot","Movement","Camera moves backward ahead of the subject walking toward it.",{m:"follow",o:{pos:"ahead"}}],
+["Following shot","Movement","Camera trails behind the subject.",{m:"follow",o:{pos:"behind"}}],
+["Walk and talk","Movement","Leading Steadicam shot of people talking as they walk.",{m:"follow",o:{pos:"ahead",rig:"steadicam"},fr:"two"}],
+["Steadicam shot","Movement","Smooth, floating handheld follow.",{m:"follow",o:{rig:"steadicam"}}],
+["Gimbal shot","Movement","Stabilized, gliding follow on a gimbal.",{m:"follow",o:{rig:"gimbal"}}],
+["Chase cam","Movement","Fast, rough handheld chase behind the subject.",{m:"follow",o:{pos:"behind",rig:"handheld"},sp:"fast"}],
+["Low tracking shot","Movement","Tracking just above the ground.",{m:"follow",o:{rig:"buggy"},an:"ground"}],
+["Car rig / car mount","Movement","Camera fixed to a vehicle, with road vibration.",{m:"follow",o:{rig:"car"}}],
+["Buggy / doggy cam","Movement","Low camera on a small wheeled rig.",{m:"follow",o:{rig:"buggy"}}],
+["Process trailer shot","Movement","Car towed on a trailer; view through the car window.",{m:"follow",o:{rig:"trailer"}}],
+["Drone rise","Movement","Aerial climb up and back from the scene.",{m:"drone",o:{v:"rise"}}],
+["Drone dive","Movement","Aerial plunge down toward the subject.",{m:"drone",o:{v:"dive"}}],
+["Drone flyover","Movement","High pass across the landscape.",{m:"drone",o:{v:"flyover"}}],
+["Drone reveal","Movement","Starts close, pulls up and away to reveal the world.",{m:"drone",o:{v:"reveal"}}],
+["FPV drone","Movement","Fast, acrobatic first-person drone fly-through.",{m:"drone",o:{v:"fpv"},sp:"fast"}],
+["Helicopter shot","Movement","Wide, sweeping high aerial.",{m:"drone",o:{v:"heli"}}],
+["Top-down drone","Movement","Looks straight down while rotating.",{m:"drone",o:{v:"topdown"}}],
+["Dutch roll","Movement","Camera rolls into a tilted horizon.",{m:"roll",o:{v:"dutch"}}],
+["360 roll","Movement","Camera spins a full turn on the lens axis.",{m:"roll",o:{v:"full"}}],
+["Barrel roll","Movement","Rolls a full turn while moving sideways.",{m:"roll",o:{v:"barrel"}}],
+["Upside-down shot","Movement","Frame flipped upside down.",{m:"roll",o:{v:"upside"}}],
+["Dolly zoom (Vertigo)","Movement","Dolly in while zooming out: subject stays, background stretches.",{m:"dzoom",o:{dir:"in"}}],
+["Contra-zoom / Trombone shot","Movement","Reverse dolly zoom: background compresses toward the subject.",{m:"dzoom",o:{dir:"out"}}],
+["Handheld","Movement","Natural human shake for a raw, documentary feel.",{m:"shake",o:{v:"subtle"}}],
+["Shoulder-mounted","Movement","Heavier, swaying shoulder-rig motion.",{m:"shake",o:{v:"shoulder"}}],
+["Shaky cam","Movement","Aggressive shaking for chaos and panic.",{m:"shake",o:{v:"shaky"}}],
+["Impact shake","Movement","Sharp jolt as if something hit.",{m:"shake",o:{v:"impact"}}],
+["Earthquake shake","Movement","Violent continuous rumble.",{m:"shake",o:{v:"quake"}}],
+["Window fly-through","Movement","Camera passes through a window into the scene.",{m:"through",o:{v:"window"}}],
+["Doorway push-through","Movement","Camera pushes through an open doorway.",{m:"through",o:{v:"door"}}],
+["Gap fly-through","Movement","Camera threads through a narrow gap.",{m:"through",o:{v:"gap"}}],
+["Keyhole shot","Movement","Push through a keyhole into the room.",{m:"through",o:{v:"keyhole"}}],
+["Crowd push-through","Movement","Camera pushes between people in a crowd.",{m:"through",o:{v:"crowd"}}],
+["POV shot","Movement","Seen through the character's eyes.",{m:"mounted",o:{v:"pov"}}],
+["Helmet / action cam","Movement","Wide, shaky head-mounted view.",{m:"mounted",o:{v:"helmet"}}],
+["Body cam","Movement","Chest-mounted, fisheye, with a timestamp.",{m:"mounted",o:{v:"body"}}],
+["Snorricam","Movement","Rig on the actor: face stays fixed, world moves.",{m:"mounted",o:{v:"snorri"}}],
+["Dashcam","Movement","View through a car windshield.",{m:"mounted",o:{v:"dash"}}],
+["Fallen camera","Movement","Camera lying sideways on the ground.",{m:"mounted",o:{v:"fallen"}}],
+["One-take / Oner","Movement","One continuous shot with no cuts.",{m:"oner",o:{v:"long"},sp:"slow"}],
+["Hidden wipe","Movement","Dark object crosses the lens to hide a cut.",{m:"oner",o:{v:"wipe"}}],
+["Foreground wipe-by","Movement","Blurred object passes close in front of the lens.",{m:"oner",o:{v:"fgwipe"}}],
+["Extreme long shot","Shot size","Subject tiny in a vast environment.",{sz:1}],
+["Establishing shot","Shot size","Opens a scene by showing where we are.",{sz:2,m:"drone",o:{v:"rise"},sp:"slow"}],
+["Long / wide shot","Shot size","Full subject plus plenty of surroundings.",{sz:3}],
+["Full shot","Shot size","Head to toe in frame.",{sz:4}],
+["Medium long shot","Shot size","From the knees up.",{sz:5}],
+["Cowboy shot","Shot size","Mid-thigh up, from Westerns.",{sz:6}],
+["Medium shot","Shot size","Waist up.",{sz:7}],
+["Medium close-up","Shot size","Chest up.",{sz:8}],
+["Choker shot","Shot size","Tight close-up from the neck up.",{sz:9}],
+["Close-up","Shot size","Face fills the frame.",{sz:10}],
+["Extreme close-up","Shot size","A single feature like the eyes.",{sz:11}],
+["Italian shot","Shot size","Extreme close-up on the eyes, from spaghetti Westerns.",{sz:11}],
+["Macro shot","Shot size","Microscopic detail and texture.",{sz:12}],
+["God's eye view","Angle","Directly overhead, looking straight down.",{an:"gods"}],
+["Bird's-eye view","Angle","High above, looking down on the scene.",{an:"bird"}],
+["High angle","Angle","Above the subject looking down; feels small.",{an:"high"}],
+["Eye level","Angle","Neutral, at eye height.",{an:"eye"}],
+["Shoulder level","Angle","At shoulder height.",{an:"shoulder"}],
+["Hip level","Angle","At waist height.",{an:"hip"}],
+["Knee level","Angle","At knee height.",{an:"knee"}],
+["Low angle","Angle","Below the subject looking up; feels powerful.",{an:"low"}],
+["Ground level","Angle","Camera on the floor.",{an:"ground"}],
+["Worm's-eye view","Angle","From the ground straight up.",{an:"worm"}],
+["Dutch angle","Angle","Tilted horizon for unease.",{an:"dutch"}],
+["Hero shot","Angle","Low angle, wide lens, slow push to make the subject heroic.",{an:"low",ln:"wide",m:"dolly",o:{v:"push"},sp:"slow"}],
+["Fisheye shot","Lens","Extreme curved wide view.",{ln:"fish"}],
+["Ultra-wide shot","Lens","Huge field of view with stretched depth.",{ln:"ultra"}],
+["Wide-angle lens shot","Lens","Exaggerated depth and perspective.",{ln:"wide"}],
+["Normal lens (50mm)","Lens","Close to what the human eye sees.",{ln:"normal"}],
+["Telephoto shot","Lens","Long lens flattens depth.",{ln:"tele"}],
+["Long-lens compression","Lens","Extreme telephoto; background looms close.",{ln:"xtele"}],
+["Anamorphic shot","Lens","Wide cinematic frame with streak flares.",{ln:"ana"}],
+["Tilt-shift miniature","Lens","Blurred top and bottom make the world look like a toy.",{ln:"ts",an:"high"}],
+["Deep focus","Focus","Everything sharp, front to back.",{fc:"deep"}],
+["Shallow depth of field","Focus","Subject sharp, background melts away.",{fc:"shallow"}],
+["Bokeh shot","Focus","Soft glowing blur in the background.",{fc:"shallow",sz:8}],
+["Rack focus","Focus","Focus shifts from foreground to subject.",{fc:"rack"}],
+["Focus pull reveal","Focus","Image goes from blurry to sharp.",{fc:"pull"}],
+["Split diopter","Focus","Near and far both in focus.",{fc:"split"}],
+["Out-of-focus shot","Focus","Whole frame soft for a dreamy feel.",{fc:"oof"}],
+["Diffusion / glamour shot","Focus","Soft glow on highlights.",{fc:"diff",sz:8}],
+["Slow motion","Time","Time slows down.",{tm:"slow"}],
+["Extreme slow motion","Time","Ultra high-speed footage; time nearly stops.",{tm:"xslow"}],
+["Fast motion","Time","Time sped up.",{tm:"fast"}],
+["Speed ramp","Time","Real time drops into slow-mo and back.",{tm:"ramp"}],
+["Time-lapse","Time","Hours compressed into seconds.",{tm:"lapse"}],
+["Hyperlapse","Time","A time-lapse where the camera travels.",{tm:"hyper",m:"truck",o:{dir:"right"}}],
+["Freeze frame","Time","The image stops on one frame.",{tm:"freeze"}],
+["Stop motion","Time","Choppy frame-by-frame animation look.",{tm:"stop"}],
+["Slow shutter / motion blur","Time","Movement leaves streaks.",{tm:"shutter",m:"pan",o:{dir:"right"}}],
+["Reverse motion","Time","Footage plays backward.",{tm:"rev",m:"dolly"}],
+["Single shot","Framing","One subject alone in frame.",{fr:"single",sz:7}],
+["Clean single","Framing","One person, nothing else in front.",{fr:"clean"}],
+["Dirty single","Framing","One person with another's shoulder at the edge.",{fr:"dirty"}],
+["Two shot","Framing","Two subjects in frame.",{fr:"two"}],
+["Three shot","Framing","Three subjects in frame.",{fr:"three"}],
+["Group shot","Framing","A whole group together.",{fr:"group"}],
+["Master shot","Framing","Wide shot covering all the action.",{fr:"master"}],
+["Over-the-shoulder","Framing","Behind one person's shoulder, looking at the other.",{fr:"ots"}],
+["Over-the-body","Framing","Large foreground body framing the subject.",{fr:"overbody"}],
+["Profile shot","Framing","Subject seen from the side.",{fr:"profile",sz:8}],
+["Negative space shot","Framing","Small subject, huge empty frame.",{fr:"negative"}],
+["Rule of thirds","Framing","Subject placed on a thirds line.",{fr:"thirds"}],
+["Symmetrical center framing","Framing","Perfectly centered, mirror-balanced composition.",{fr:"center"}],
+["Frame within a frame","Framing","Subject framed by a doorway or window.",{fr:"fwf"}],
+["Through foliage","Framing","Shot through leaves or branches.",{fr:"foliage"}],
+["Reflection shot","Framing","Subject seen mirrored in water or glass.",{fr:"reflect"}],
+["Silhouette shot","Framing","Subject is a dark shape against bright light.",{fr:"silhouette"}],
+["Insert shot","Framing","Tight cut to a small object or detail.",{fr:"insert"}],
+["Cutaway","Framing","Quick cut to something nearby.",{fr:"cutaway"}],
+["Reaction shot","Framing","Close on a face reacting.",{fr:"reaction"}],
+["Breaking the fourth wall","Framing","Subject looks straight into the lens.",{fr:"fourth",m:"dolly",o:{v:"push"}}],
+["Split screen","Framing","Two images side by side.",{fr:"split"}],
+["Iris shot","Framing","Circle opens or closes on the scene.",{fr:"iris"}],
+["Binocular shot","Framing","View through binoculars.",{fr:"binocular",ln:"tele"}],
+["Sniper scope shot","Framing","View through a rifle scope.",{fr:"sniper",ln:"xtele"}],
+["Vignette shot","Framing","Darkened edges pull focus to the center.",{fr:"vignette"}],
+["Tunnel vision","Framing","Edges blur and darken around the subject.",{fr:"tunnel"}],
+["Limbo shot","Framing","Subject against a plain seamless backdrop.",{fr:"limbo"}]
+];
+
+/* ================= Builder state ================= */
+const DEF={m:"static",o:{},sp:"med",sz:0,an:"none",ln:"none",fc:"none",tm:"none",fr:"none"};
+let cfg=JSON.parse(JSON.stringify(DEF)), shotName="", shotDesc="";
+function optVal(k){const b=BASES[cfg.m].opts||{};return cfg.o[k]??(b[k]?b[k][0][0]:undefined)}
+
+/* ================= Phrases ================= */
+function movePhrase(){
+  const o=k=>optVal(k), sp={slow:"slow ",med:"",fast:"fast "}[cfg.sp];
+  switch(cfg.m){
+   case"static":return o("v")==="passby"?"static camera as the subject passes close by":"static locked-off camera";
+   case"dolly":return o("v")==="push"?`${sp}push-in toward the subject`:o("v")==="reveal"?`${sp}pull-back reveal`:`${sp}dolly ${o("dir")}`;
+   case"zoom":return o("v")==="snap"?`snap zoom ${o("dir")}`:o("v")==="crash"?`crash zoom ${o("dir")}`:`${sp}zoom ${o("dir")}`;
+   case"pan":return o("v")==="whip"?`whip pan ${o("dir")}`:o("v")==="full"?"360-degree pan":`${sp}pan ${o("dir")}`;
+   case"tilt":return o("v")==="whip"?`whip tilt ${o("dir")}`:o("v")==="reveal"?`${sp}tilt-up reveal from feet to face`:`${sp}tilt ${o("dir")}`;
+   case"truck":{const d=o("dir");return{truck:`${sp}truck ${d}`,crab:`crab shot moving ${d}`,slider:`${sp}slider shot moving ${d}`,drift:`gentle parallax drift to the ${d}`}[o("v")]}
+   case"crane":{const d=o("dir"),w=d==="swing"?"swinging across the scene":d==="up"?"rising":"descending";
+     return{crane:`${sp}crane shot ${w}`,pedestal:`pedestal ${d==="down"?"down":"up"}`,boom:`${sp}boom shot ${w}`,jib:`${sp}jib shot ${w}`,vslider:`vertical slider moving ${d==="down"?"down":"up"}`,robot:"fast robotic-arm camera move",wire:"cable-cam shot gliding overhead"}[o("v")]}
+   case"orbit":{const dir=o("dir")==="left"?"counter-clockwise":"clockwise",h={level:"",rise:" while rising",fall:" while descending"}[o("h")];
+     return o("v")==="bullet"?`bullet-time orbit around a frozen moment${h}`:o("v")==="full"?`${sp}full 360-degree orbit around the subject${h}`:`${sp}arc shot ${dir} around the subject${h}`}
+   case"follow":{const p={side:"tracking shot moving alongside the subject",ahead:"leading shot moving backward ahead of the subject",behind:"following shot from behind the subject"}[o("pos")];
+     const r={dolly:"",steadicam:" on a Steadicam",gimbal:" on a gimbal",handheld:", handheld",car:" from a car-mounted rig",buggy:" on a low buggy cam",trailer:" from a process trailer"}[o("rig")];return sp+p+r}
+   case"drone":return{rise:"aerial drone shot rising and pulling back",dive:"drone diving toward the subject",flyover:"drone flyover across the landscape",reveal:"drone reveal pulling up and away",fpv:"fast FPV drone fly-through",heli:"sweeping helicopter shot",topdown:"top-down overhead drone shot slowly rotating"}[o("v")];
+   case"roll":return{dutch:"camera rolls into a dutch angle",full:"360-degree camera roll",barrel:"barrel-roll camera move",upside:"upside-down camera"}[o("v")];
+   case"dzoom":return o("dir")==="in"?"dolly zoom (vertigo effect), dollying in while zooming out":"reverse dolly zoom, dollying out while zooming in";
+   case"shake":return{subtle:"handheld camera with subtle shake",shoulder:"shoulder-mounted camera",shaky:"intense shaky cam",impact:"sharp camera shake on impact",quake:"violent earthquake camera shake"}[o("v")];
+   case"through":return{window:"camera flies through a window",door:"camera pushes through a doorway",gap:"camera threads through a narrow gap",keyhole:"camera pushes through a keyhole",crowd:"camera pushes through a crowd"}[o("v")];
+   case"mounted":return{pov:"first-person POV shot",helmet:"helmet-mounted action cam",body:"body-cam footage",snorri:"Snorricam rig fixed on the subject",dash:"dashcam view through the windshield",fallen:"fallen camera lying on the ground"}[o("v")];
+   case"oner":return{long:"continuous one-take long shot",wipe:"hidden wipe transition",fgwipe:"foreground wipe-by"}[o("v")];
+  }
+}
+function fullPhrase(){
+  const pick=(arr,k)=>(arr.find(x=>x[0]===k)||[])[2]||"";
+  const p=[movePhrase(),SIZES[cfg.sz][1],pick(ANGLES,cfg.an),pick(LENSES,cfg.ln),pick(FOCUS,cfg.fc),pick(TIMES,cfg.tm),pick(FRAMES,cfg.fr)].filter(Boolean).join(", ");
+  return p[0].toUpperCase()+p.slice(1);
+}
+
+/* ================= Demo engine ================= */
+const cv=document.getElementById("cv"),cx=cv.getContext("2d");
+const tmp=document.createElement("canvas");tmp.width=cv.width;tmp.height=cv.height;const tx2=tmp.getContext("2d");
+const prev=document.createElement("canvas");prev.width=cv.width;prev.height=cv.height;const pv=prev.getContext("2d");
+let t0=performance.now(),raf=0;
+const PI=Math.PI, ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2, K=()=>cx.setTransform(cv.width/800,0,0,cv.height/450,0,0);
+
+function moveCam(e,c){
+  const o=k=>optVal(k);
+  switch(cfg.m){
+   case"static":return o("v")==="passby"?{walk:-520+1040*e,walking:1,near:1}:{};
+   case"dolly":return o("v")==="push"?{dolly:.45*e}:o("v")==="reveal"?{dolly:1.6*(1-e)}:{dolly:o("dir")==="in"?.9*e:.9*(1-e)};
+   case"zoom":{const a=o("v")==="crash"?1.8:o("v")==="snap"?1.2:.9,f=o("dir")==="in"?e:1-e;return{zoom:1+a*f,shake:o("v")==="crash"?8*Math.sin(PI*e):0}}
+   case"pan":{const s=o("dir")==="left"?-1:1;if(o("v")==="full")return{px:s*1600*e};if(o("v")==="whip"){const x=e<.4?0:Math.min(1,(e-.4)*5);return{px:s*700*x,blur:x>0&&x<1?"h":0}}return{px:s*200*e}}
+   case"tilt":{const s=o("dir")==="up"?-1:1;if(o("v")==="reveal")return{zoom:2.4,py:60-150*e};if(o("v")==="whip"){const x=e<.4?0:Math.min(1,(e-.4)*5);return{py:s*450*x,blur:x>0&&x<1?"v":0}}return{py:s*140*e}}
+   case"truck":{const s=o("dir")==="left"?-1:1,a={truck:220,crab:240,slider:120,drift:70}[o("v")];return{tx:s*a*e}}
+   case"crane":{const d=o("dir"),v=o("v");
+     if(v==="robot")return{orb:-150+300*e,ty:-150*Math.sin(PI*e),dolly:.5*Math.sin(PI*e)};
+     if(v==="wire")return{tx:-300+600*e,ty:-160,py:70,zoom:.9};
+     if(d==="swing")return{tx:220*e-110,ty:-120*Math.sin(PI*e),py:30*Math.sin(PI*e)};
+     const f=d==="down"?1-e:e;return{vslider:{ty:-80*f},pedestal:{ty:-130*f},boom:{ty:-200*f,py:50*f},jib:{ty:-170*f,py:40*f,tx:40*f},crane:{ty:-170*f,py:30*f}}[v]}
+   case"orbit":{const s=o("dir")==="right"?1:-1,full=o("v")==="full";const r={orb:s*(full?-420+840*e:-150+300*e)};
+     if(o("h")==="rise")r.ty=-150*e;if(o("h")==="fall")r.ty=-150+150*e;if(o("v")==="bullet")r.bullet=1;return r}
+   case"follow":{const p=o("pos"),rig=o("rig");let r;
+     if(p==="side")r={tx:320*e,walk:320*e};else if(p==="ahead")r={dolly:-.4*e,zoom:1/(1-.4*e)};else r={dolly:.4*e,zoom:1/(1+.4*e),back:1};
+     r.walking=1;
+     if(rig==="steadicam"||rig==="gimbal")r.float=rig==="gimbal"?2:4;
+     if(rig==="handheld")r.shake=5;if(rig==="car")r.shake=1.5,r.vib=1;if(rig==="buggy")r.ty=(r.ty||0)+70,r.py=-25,r.vib=1;
+     if(rig==="trailer")r.hud="trailer",r.vib=1;return r}
+   case"drone":return{rise:{ty:-220*e,dolly:-.35*e,py:60*e},dive:{ty:-220*(1-e),dolly:-.35+.95*e,py:60*(1-e)},flyover:{tx:-300+600*e,ty:-200,py:90,zoom:.8,sy:.85},reveal:{dolly:1.2-1.6*e,ty:-200*e,py:50*e},fpv:{tx:-400+800*e,dolly:.5*Math.sin(PI*e),rot:.25*Math.sin(e*2*PI),ty:-60*Math.sin(PI*e)},heli:{tx:-200+400*e,ty:-260,py:140,zoom:.7,sy:.8},topdown:{ty:-320,py:230,zoom:.72,sy:.55,rot:.35*e}}[o("v")];
+   case"roll":return{dutch:{rot:.3*e},full:{rot:2*PI*e},barrel:{rot:2*PI*e,tx:200*e-100},upside:{rot:PI}}[o("v")];
+   case"dzoom":{const d=o("dir")==="in"?1.3*e:1.3*(1-e);return{dolly:d,zoom:1/(1+d)}}
+   case"shake":{const v=o("v");if(v==="impact"){const k=Math.max(0,1-Math.abs(e-.35)*6);return{shake:22*k}}return{shake:{subtle:3,shoulder:5,shaky:11,quake:17}[v],float:v==="shoulder"?6:0}}
+   case"through":return{dolly:1.5*e,thru:o("v"),thruE:e};
+   case"mounted":{const v=o("v");return{pov:{float:5,hud:"pov"},helmet:{shake:5,fish:1},body:{shake:4,fish:1,hud:"body"},snorri:{snorri:1},dash:{dolly:.5*e,hud:"dash",vib:1},fallen:{rot:1.35,ty:150,py:-30}}[v]}
+   case"oner":{const v=o("v");if(v==="long")return{tx:200*e,orb:120*e-60,ty:-60*e,walk:200*e,walking:1};return{wipe:e,soft:v==="fgwipe"}}
+  }
+  return{};
+}
+function buildCam(e,clock){
+  const c=Object.assign({zoom:1,px:0,py:0,tx:0,ty:0,orb:0,dolly:0,rot:0,sy:1,spread:1},moveCam(e,clock)||{});
+  c.zoom=c.zoom??1;
+  const S=SIZES[cfg.sz];if(S[2]){c.zoom*=S[2];c.py+=S[3];c.px+=S[4]||0}
+  const A=ANGLES.find(a=>a[0]===cfg.an)[3]||{};c.zoom*=A.zoom||1;c.py+=A.py||0;c.ty+=A.ty||0;c.rot+=A.rot||0;c.sy*=A.sy||1;
+  const L=LENSES.find(a=>a[0]===cfg.ln);if(L[3]){c.spread*=L[3];c.zoom*=L[4]}if(cfg.ln==="fish")c.fish=1;
+  const fr=cfg.fr;
+  if(fr==="insert"||fr==="cutaway"){c.zoom*=6;c.px+=fr==="insert"?75:-130;c.py+=82}
+  if(fr==="reaction"){c.zoom*=3.4;c.py-=76}
+  if(fr==="clean"){c.zoom*=2.6;c.py-=58;c.noFg=1}
+  if(fr==="negative"){c.px-=230;c.zoom*=.8}
+  if(fr==="thirds")c.px-=130;
+  if(fr==="master")c.zoom*=.6;
+  if(fr==="profile")c.profile=1;
+  if(fr==="silhouette")c.sil=1;
+  if(fr==="limbo")c.limbo=1;
+  if(fr==="fourth")c.zoom*=1.2,c.py-=20;
+  c.clock=clock;return c;
+}
+function blurFor(d,c,p){
+  const f=cfg.fc;let b=0;
+  if(f==="shallow")b=d===1?0:(d<1?7:5);
+  if(f==="oof")b=5;
+  if(f==="rack"){const k=Math.min(1,Math.max(0,(p-.3)*3));b=d===1?6*(1-k):d>1?6*k:3*k+1}
+  if(f==="pull")b=6*(1-Math.min(1,p*1.6));
+  if(f==="split")b=d===.5?6:0;
+  if(cfg.ln==="tele"||cfg.ln==="xtele")b+=d<1&&f==="none"?2:0;
+  return b;
+}
+function layer(d,c,p,draw){
+  const de=1+(d-1)*c.spread;
+  const s=c.zoom*Math.max(.15,1+c.dolly*de);
+  const ox=c.px+c.tx*de+c.orb*(de-1), oy=c.py+c.ty*de;
+  let sx=0,sy=0;const t=c.clock;
+  const amp=(c.shake||0)*(c.snorri&&d===1?0:1);
+  if(amp){sx=amp*(Math.sin(t*23.1)+.6*Math.sin(t*37.3));sy=amp*(Math.cos(t*19.7)+.6*Math.sin(t*31.9))}
+  if(c.float){sx+=c.float*Math.sin(t*1.3);sy+=c.float*.6*Math.sin(t*1.9)}
+  if(c.vib){sy+=1.6*Math.sin(t*60)}
+  if(c.snorri&&d!==1){sx+=26*Math.sin(t*3);sy+=18*Math.abs(Math.sin(t*3))}
+  cx.save();K();
+  const b=blurFor(d,c,p);if(b)cx.filter=`blur(${b*cv.width/800}px)`;
+  cx.translate(400+sx,280+sy);cx.rotate(c.rot);cx.scale(s,s*c.sy);cx.translate(-400-ox,-280-oy);
+  draw();cx.restore();
+}
+function figure(x,y,col,c,face){
+  const t=c.clock, w=c.walking, step=w?Math.sin(t*9)*10:0, sil=c.sil;
+  const ink=sil?"#08070c":"#1b1830";
+  cx.fillStyle="rgba(0,0,0,.25)";cx.beginPath();cx.ellipse(x,y+92,34,8,0,0,7);cx.fill();
+  cx.strokeStyle=ink;cx.lineWidth=11;cx.lineCap="round";cx.beginPath();cx.moveTo(x-6,y+40);cx.lineTo(x-8-step,y+88);cx.moveTo(x+6,y+40);cx.lineTo(x+8+step,y+88);cx.stroke();
+  cx.fillStyle=sil?ink:col;cx.beginPath();cx.roundRect(x-22,y-44,44,90,14);cx.fill();
+  cx.fillStyle=sil?ink:"#f1c9a5";cx.beginPath();cx.arc(x,y-68,22,0,7);cx.fill();
+  cx.fillStyle=sil?ink:"#3a2a20";cx.beginPath();if(c.back)cx.arc(x,y-70,23,0,7);else cx.arc(x,y-76,22,PI,0);cx.fill();
+  if(!sil&&!c.back){cx.fillStyle="#1b1830";const off=c.profile?9:0;cx.beginPath();if(c.profile)cx.arc(x+off+5,y-71,2.6,0,7);else{cx.arc(x-7,y-71,2.6,0,7);cx.arc(x+7,y-71,2.6,0,7)}cx.fill()}
+}
+function scene(c,p){
+  const t=c.clock;
+  if(c.limbo){cx.save();K();cx.fillStyle="#d9d6e3";cx.fillRect(0,0,800,450);cx.restore()}
+  else{
+  layer(.15,c,p,()=>{const g=cx.createLinearGradient(0,-600,0,500);
+    if(c.sil){g.addColorStop(0,"#ff9a3c");g.addColorStop(1,"#ffe1a0")}else{g.addColorStop(0,"#2b4a8a");g.addColorStop(.6,"#f2a65a");g.addColorStop(1,"#f7d08a")}
+    cx.fillStyle=g;cx.fillRect(-2600,-1800,6000,2800);
+    const lapse=cfg.tm==="lapse"||cfg.tm==="hyper";const sunx=lapse?200+((t*40)%500):560,suny=lapse?250-120*Math.sin(((t*40)%500)/500*PI):170;
+    cx.fillStyle="#ffe7a8";cx.beginPath();cx.arc(sunx,suny,c.sil?60:38,0,7);cx.fill();
+    cx.fillStyle="rgba(255,255,255,.75)";for(let i=0;i<6;i++){const x=((i*400+t*25)%3200)-1200;cx.beginPath();cx.ellipse(x,90+i*18,70,18,0,0,7);cx.ellipse(x+40,80+i*18,45,16,0,0,7);cx.fill()}
+    cx.fillStyle="#6b5a8e";cx.beginPath();cx.moveTo(-2600,330);for(let x=-2600;x<=3400;x+=160)cx.lineTo(x,250+((x/160)%2?-70:20));cx.lineTo(3400,1200);cx.lineTo(-2600,1200);cx.fill()});
+  layer(.5,c,p,()=>{cx.fillStyle="#3d6b4a";cx.fillRect(-3000,330,7000,1600);
+    for(let x=-2200;x<3000;x+=170){cx.fillStyle="#2a4d36";cx.beginPath();cx.moveTo(x,335);cx.lineTo(x+30,240);cx.lineTo(x+60,335);cx.fill();cx.fillStyle="#5a3e2b";cx.fillRect(x+26,335,8,14)}
+    if(cfg.fr==="reflect"){cx.fillStyle="#5d86a8";cx.fillRect(-3000,372,7000,1600)}
+    cx.fillStyle="#ffb347";for(let i=0;i<26;i++){const x=(i*137)%900-50,y=((i*91+t*45)%420)-60;cx.beginPath();cx.arc(x+Math.sin(t+i)*8,y,2.4,0,7);cx.fill()}});
+  }
+  layer(1,c,p,()=>{
+    const fr=cfg.fr,x0=400+(c.walk||0)+(c.near?0:0);let xs=[0];
+    if(fr==="two")xs=[-40,40];if(fr==="three")xs=[-75,0,75];if(fr==="group")xs=[-140,-70,0,70,140];
+    const cols=["#7c5cff","#e2557a","#2aa198","#e3a21a","#3b82f6"];
+    const jump=c.bullet?-46:0;
+    cx.save();if(c.near){cx.translate(x0,300);cx.scale(1.8,1.8);cx.translate(-x0,-300)}
+    xs.forEach((dx,i)=>figure(x0+dx,280+jump,cols[i],c));
+    cx.restore();
+    cx.fillStyle="#e85d75";cx.beginPath();cx.arc(475,362,5,0,7);cx.fill();cx.fillStyle="#ffd84d";cx.beginPath();cx.arc(475,362,2,0,7);cx.fill();
+    cx.strokeStyle="#2a6b3a";cx.lineWidth=2;cx.beginPath();cx.moveTo(475,367);cx.lineTo(475,378);cx.stroke();
+    cx.fillStyle="#8a8a8a";cx.beginPath();cx.ellipse(270,372,10,6,0,0,7);cx.fill();
+  });
+  if(!c.noFg&&!c.limbo)layer(1.7,c,p,()=>{cx.fillStyle="#1f3a28";for(let x=-2400;x<3200;x+=95){cx.beginPath();cx.moveTo(x,470);cx.quadraticCurveTo(x+10,400,x+4,380);cx.quadraticCurveTo(x+18,420,x+26,470);cx.fill()}
+    cx.fillStyle="#4a3424";cx.fillRect(130,300,22,220);cx.fillRect(660,300,22,220)});
+  if(c.thru&&c.thru!=="crowd")layer(3,c,p,()=>{cx.fillStyle="#2b2433";cx.beginPath();cx.rect(-4000,-4000,8800,8800);
+    const v=c.thru;
+    if(v==="window"){cx.rect(330,200,140,110)}else if(v==="door"){cx.rect(350,170,100,200)}else if(v==="gap"){cx.rect(385,150,30,230)}
+    else if(v==="keyhole"){cx.arc(400,240,22,0,7);cx.moveTo(388,250);cx.rect(388,250,24,50)}
+    else{cx.rect(-4000,-4000,0,0)}
+    cx.fill("evenodd");
+    if(v==="window"){cx.fillStyle="#2b2433";cx.fillRect(397,200,6,110);cx.fillRect(330,252,140,6)}
+    if(v==="crowd"){cx.clearRect(0,0,0,0);}
+  });
+  if(c.thru==="crowd")layer(2.6,c,p,()=>{cx.fillStyle="#1a1724";[[-260,0],[-150,30],[150,25],[260,0],[-60,60],[70,70]].forEach(([dx,dy])=>{const x=400+dx*(1+c.thruE*1.4);cx.beginPath();cx.arc(x,190+dy,40,0,7);cx.fill();cx.fillRect(x-55,220+dy,110,300)})});
+}
+function overlays(c,p){
+  const fr=cfg.fr;cx.save();K();
+  const vig=(a,r0)=>{const g=cx.createRadialGradient(400,225,r0,400,225,520);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,`rgba(0,0,0,${a})`);cx.fillStyle=g;cx.fillRect(0,0,800,450)};
+  const mask=(fn)=>{cx.fillStyle="#000";cx.beginPath();cx.rect(0,0,800,450);fn();cx.fill("evenodd")};
+  if(fr==="reflect"){cx.restore();cx.save();cx.setTransform(1,0,0,1,0,0);const H=cv.height,cut=H*.82;
+    cx.globalAlpha=.55;cx.translate(0,cut*2);cx.scale(1,-1);cx.drawImage(cv,0,cut-H*.4,cv.width,H*.4,0,cut-H*.4,cv.width,H*.4);cx.restore();cx.save();K()}
+  if(fr==="ots"||fr==="dirty"||fr==="overbody"){const k=fr==="dirty"?.55:fr==="overbody"?1.5:1;cx.fillStyle="#1d1a2a";cx.beginPath();cx.ellipse(90*k-40,470,240*k,170*k,0,0,7);cx.fill();if(fr!=="dirty"){cx.beginPath();cx.arc(150*k-30,250+40*(k-1),95*k,0,7);cx.fill()}}
+  if(fr==="fwf"){cx.fillStyle="#2e2638";cx.beginPath();cx.rect(0,0,800,450);cx.rect(250,40,300,420);cx.fill("evenodd")}
+  if(fr==="foliage"){cx.filter=`blur(6px)`;cx.fillStyle="#1f4d2b";for(let i=0;i<14;i++){const a=i/14*2*PI,x=400+Math.cos(a)*430,y=225+Math.sin(a)*260;cx.beginPath();cx.ellipse(x,y,120,50,a,0,7);cx.fill()}cx.filter="none"}
+  if(fr==="center"||fr==="thirds"){cx.strokeStyle="rgba(255,255,255,.35)";cx.lineWidth=1.5;cx.beginPath();if(fr==="center"){cx.moveTo(400,0);cx.lineTo(400,450)}else{[267,533].forEach(x=>{cx.moveTo(x,0);cx.lineTo(x,450)});[150,300].forEach(y=>{cx.moveTo(0,y);cx.lineTo(800,y)})}cx.stroke()}
+  if(fr==="split"){cx.restore();cx.save();cx.setTransform(1,0,0,1,0,0);const W=cv.width,H=cv.height;cx.translate(W,0);cx.scale(-1,1);cx.filter="hue-rotate(160deg)";cx.drawImage(cv,0,0,W/2,H,0,0,W/2,H);cx.restore();cx.save();K();cx.fillStyle="#fff";cx.fillRect(397,0,6,450)}
+  if(fr==="vignette")vig(.85,120);
+  if(fr==="tunnel"){vig(.97,40);}
+  if(fr==="iris"){const r=40+520*Math.min(1,p*1.3);mask(()=>cx.arc(400,225,r,0,7))}
+  if(fr==="binocular")mask(()=>{cx.moveTo(530,225);cx.arc(300,225,140,0,7);cx.moveTo(640,225);cx.arc(500,225,140,0,7)});
+  if(fr==="sniper"){mask(()=>cx.arc(400,225,190,0,7));cx.strokeStyle="#000";cx.lineWidth=2;cx.beginPath();cx.moveTo(210,225);cx.lineTo(590,225);cx.moveTo(400,35);cx.lineTo(400,415);cx.stroke()}
+  if(c.fish){vig(.9,170);mask(()=>cx.ellipse(400,225,450,300,0,0,7))}
+  if(cfg.ln==="ana"){cx.fillStyle="rgba(120,180,255,.55)";cx.fillRect(0,168,800,4);cx.fillStyle="#000";cx.fillRect(0,0,800,58);cx.fillRect(0,392,800,58)}
+  if(c.hud==="pov"){cx.fillStyle="#e7b892";cx.beginPath();cx.ellipse(180,470,70,110,-.4,0,7);cx.ellipse(620,470,70,110,.4,0,7);cx.fill();vig(.5,200)}
+  if(c.hud==="dash"){cx.fillStyle="#141218";cx.beginPath();cx.moveTo(0,450);cx.quadraticCurveTo(400,350,800,450);cx.fill();cx.fillRect(0,0,800,26);cx.fillStyle="#ff4d4d";cx.font="bold 18px monospace";cx.fillText("● REC",20,60)}
+  if(c.hud==="body"){cx.fillStyle="#fff";cx.font="bold 18px monospace";cx.fillText("BODY CAM  2026-10-27 22:30:14",30,48)}
+  if(c.hud==="trailer"){cx.fillStyle="#191720";cx.beginPath();cx.rect(0,0,800,450);cx.roundRect(70,60,660,300,30);cx.fill("evenodd")}
+  if(c.wipe!==undefined){const x=-300+1400*c.wipe;if(c.soft)cx.filter="blur(10px)";cx.fillStyle="#120f18";cx.fillRect(x,0,260,450);cx.filter="none"}
+  if(cfg.ln==="ts"){cx.restore();cx.save();cx.setTransform(1,0,0,1,0,0);tx2.clearRect(0,0,tmp.width,tmp.height);tx2.filter="blur(5px)";tx2.drawImage(cv,0,0);tx2.filter="none";const H=cv.height;cx.drawImage(tmp,0,0,cv.width,H*.33,0,0,cv.width,H*.33);cx.drawImage(tmp,0,H*.7,cv.width,H*.3,0,H*.7,cv.width,H*.3);cx.restore();cx.save();K()}
+  if(cfg.fc==="diff"){cx.restore();cx.save();cx.setTransform(1,0,0,1,0,0);tx2.clearRect(0,0,tmp.width,tmp.height);tx2.filter="blur(8px)";tx2.drawImage(cv,0,0);tx2.filter="none";cx.globalAlpha=.45;cx.globalCompositeOperation="screen";cx.drawImage(tmp,0,0);cx.restore();cx.save();K()}
+  cx.restore();
+}
+function frame(now){
+  const tm=cfg.tm;
+  if(tm==="stop")now=Math.floor(now/125)*125;
+  const T={slow:4000,med:3000,fast:2400}[cfg.sp];
+  let p=((now-t0)%T)/T;
+  let tf={slow:.3,xslow:.1,fast:3,lapse:25,hyper:25,rev:-1}[tm]??1;
+  let gray=0;
+  if(tm==="ramp")p=p<.3?p:p<.7?.3+(p-.3)*.25:.4+(p-.7)*2;
+  if(tm==="freeze"&&p>.55){p=.55;gray=1}
+  if(tm==="rev")p=1-p;
+  const v=optVal("v"),dur=(v==="whip"||v==="snap"||v==="crash")?.6:{slow:.95,med:.75,fast:.35}[cfg.sp];
+  const e=ease(Math.min(1,p/dur));
+  let clock=(now/1000)*tf;if(tm==="ramp")clock=p*T/1000;if(gray)clock=(t0/1000+.55*T/1000)*tf;
+  const c=buildCam(e,clock);if(c.bullet)c.clock=Math.floor(t0/1000);
+  cx.setTransform(1,0,0,1,0,0);cx.filter="none";cx.globalAlpha=1;cx.clearRect(0,0,cv.width,cv.height);
+  if(c.blur){for(let i=0;i<6;i++){cx.globalAlpha=.24;scene(c.blur==="h"?{...c,px:c.px-i*35}:{...c,py:c.py-i*30},p)}cx.globalAlpha=1}else scene(c,p);
+  overlays(c,p);
+  cx.setTransform(1,0,0,1,0,0);
+  if(tm==="shutter"){cx.globalAlpha=.6;cx.drawImage(prev,0,0);cx.globalAlpha=1;pv.clearRect(0,0,prev.width,prev.height);pv.drawImage(cv,0,0)}
+  if(gray){cx.filter="grayscale(.7) contrast(1.1)";cx.drawImage(cv,0,0);cx.filter="none"}
+  raf=requestAnimationFrame(frame);
+}
+
+/* ================= Builder UI ================= */
+const el=id=>document.getElementById(id);
+function chips(box,items,cur,on){box.innerHTML="";items.forEach(([k,l])=>{const b=document.createElement("button");b.className="move"+(k===cur?" on":"");b.textContent=l;b.onclick=()=>{on(k);shotName="";refresh()};box.append(b)})}
+function refresh(){
+  chips(el("b-move"),Object.entries(BASES).map(([k,v])=>[k,v.n]),cfg.m,k=>{cfg.m=k;cfg.o={}});
+  const ob=el("b-opts");ob.innerHTML="";
+  const names={dir:"Direction",v:"Variant",h:"Height",pos:"Position",rig:"Rig"};
+  Object.entries(BASES[cfg.m].opts||{}).forEach(([k,list])=>{const g=document.createElement("div");g.className="group";const l=document.createElement("div");l.className="label";l.textContent=BASES[cfg.m].n+" · "+names[k];const r=document.createElement("div");r.className="moves";g.append(l,r);ob.append(g);chips(r,list,optVal(k),v=>{cfg.o[k]=v})});
+  chips(el("b-speed"),SPEEDS,cfg.sp,k=>cfg.sp=k);
+  el("b-size").value=cfg.sz;el("b-size-l").textContent=SIZES[cfg.sz][0];
+  chips(el("b-an"),ANGLES,cfg.an,k=>cfg.an=k);chips(el("b-ln"),LENSES,cfg.ln,k=>cfg.ln=k);
+  chips(el("b-fc"),FOCUS,cfg.fc,k=>cfg.fc=k);chips(el("b-tm"),TIMES,cfg.tm,k=>cfg.tm=k);chips(el("b-fr"),FRAMES,cfg.fr,k=>cfg.fr=k);
+  const ph=fullPhrase();
+  el("d-name").textContent=shotName||BASES[cfg.m].n;
+  el("d-desc").textContent=shotDesc&&shotName?shotDesc:"Custom combination. Tweak any toggle below.";
+  el("d-phrase").textContent=ph;
+  el("d-real").href="https://www.youtube.com/results?search_query="+encodeURIComponent((shotName||movePhrase())+" camera shot example");
+  t0=performance.now();
+}
+el("b-size").oninput=e=>{cfg.sz=+e.target.value;shotName="";refresh()};
+function applyShot(s){cfg=JSON.parse(JSON.stringify(DEF));const c=s[3];Object.assign(cfg,{...c,o:{...(c.o||{})}});shotName=s[0];shotDesc=s[2];refresh();el("demo").scrollIntoView({behavior:"smooth",block:"nearest"})}
+function shotBtn(s){const b=document.createElement("button");b.className="move";b.textContent=s[0];b.title=s[2];b.onclick=()=>applyShot(s);return b}
+el("shot-count").textContent=SHOTS.length+" shots";
+el("shot-search").oninput=e=>{const q=e.target.value.trim().toLowerCase(),r=el("shot-results");r.innerHTML="";if(!q)return;
+  SHOTS.filter(s=>(s[0]+" "+s[2]).toLowerCase().includes(q)).slice(0,24).forEach(s=>r.append(shotBtn(s)))};
+(function(){const L=el("all-list");[...new Set(SHOTS.map(s=>s[1]))].forEach(g=>{const w=document.createElement("div");w.className="group";const l=document.createElement("div");l.className="label";l.textContent=g+" · "+SHOTS.filter(s=>s[1]===g).length;const r=document.createElement("div");r.className="moves";SHOTS.filter(s=>s[1]===g).forEach(s=>r.append(shotBtn(s)));w.append(l,r);L.append(w)})})();
+el("d-reset").onclick=()=>{cfg=JSON.parse(JSON.stringify(DEF));shotName="";refresh()};
+function openLib(){document.getElementById("sheet").hidden=true;el("lib").hidden=false;refresh();cancelAnimationFrame(raf);raf=requestAnimationFrame(frame)}
+function closeLib(){cancelAnimationFrame(raf);el("lib").hidden=true;document.getElementById("sheet").hidden=false}
+const curMove={get p(){return fullPhrase()}};
+
+/* ================= Lighting & Style builders ================= */
+document.body.insertAdjacentHTML("beforeend",`<div class="sheet" id="xb" hidden role="dialog" aria-modal="true" aria-labelledby="xb-title">
+  <div class="libhead"><button class="back" id="xb-back">‹ Back</button></div>
+  <h2 id="xb-title"></h2>
+  <p class="hint" id="xb-hint"></p>
+  <div class="demo" id="xb-demo">
+    <canvas id="cv2" width="480" height="270" aria-label="Live demo"></canvas>
+    <h3 id="xb-name"></h3><p id="xb-desc"></p>
+    <p>Adds: <code id="xb-phrase"></code></p>
+    <div class="row"><button class="btn ghost" id="xb-reset">Reset</button><button class="btn" id="xb-use">Use this</button></div>
+    <a id="xb-real" target="_blank" rel="noopener">See real examples ↗</a>
+  </div>
+  <div class="group">
+    <label class="label" for="xb-search">Find by name (<span id="xb-count"></span>)</label>
+    <input id="xb-search" class="search" type="search">
+    <div id="xb-results" class="moves"></div>
+    <details><summary>Browse every named look</summary><div id="xb-all" style="display:flex;flex-direction:column;gap:12px;margin-top:10px"></div></details>
+  </div>
+  <div id="xb-rows" style="display:flex;flex-direction:column;gap:14px"></div>
+</div>`);
+
+const cv2=document.getElementById("cv2"),x2=cv2.getContext("2d",{willReadFrequently:true});
+const W2=cv2.width,H2=cv2.height;
+const t3=document.createElement("canvas");t3.width=W2;t3.height=H2;const x3=t3.getContext("2d");
+const noiseC=[];for(let f=0;f<4;f++){const c=document.createElement("canvas");c.width=240;c.height=135;const g=c.getContext("2d"),d=g.createImageData(240,135);for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255}g.putImageData(d,0,0);noiseC.push(c)}
+const L2=()=>x2.setTransform(W2/800,0,0,H2/450,0,0), R2=()=>x2.setTransform(1,0,0,1,0,0);
+let XB=null, xst={}, xName="", xDesc="", xraf=0, xt0=performance.now();
+
+function renderBase(over){
+  const saved=cfg;cfg=JSON.parse(JSON.stringify(DEF));
+  const c=buildCam(0,performance.now()/1000);Object.assign(c,over||{});
+  cx.setTransform(1,0,0,1,0,0);cx.filter="none";cx.globalAlpha=1;cx.globalCompositeOperation="source-over";cx.clearRect(0,0,cv.width,cv.height);
+  scene(c,0);cfg=saved;
+  R2();x2.globalCompositeOperation="source-over";x2.globalAlpha=1;x2.filter="none";x2.drawImage(cv,0,0,W2,H2);
+}
+/* --- generic helpers --- */
+function fillC(col,mode,a=1){R2();x2.globalCompositeOperation=mode||"source-over";x2.globalAlpha=a;x2.fillStyle=col;x2.fillRect(0,0,W2,H2);x2.globalAlpha=1;x2.globalCompositeOperation="source-over"}
+function refilter(f){x3.clearRect(0,0,W2,H2);x3.drawImage(cv2,0,0);R2();x2.filter=f;x2.drawImage(t3,0,0);x2.filter="none"}
+function glow(x,y,r,col,a,mode="screen",hard=false){L2();x2.globalCompositeOperation=mode;const g=x2.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col);g.addColorStop(hard?.6:.0,col);g.addColorStop(1,"rgba(0,0,0,0)");x2.globalAlpha=a;x2.fillStyle=g;x2.fillRect(x-r,y-r,2*r,2*r);x2.globalAlpha=1;x2.globalCompositeOperation="source-over";R2()}
+function bloom(a=.5,b=6){x3.clearRect(0,0,W2,H2);x3.filter=`blur(${b}px)`;x3.drawImage(cv2,0,0);x3.filter="none";R2();x2.globalCompositeOperation="screen";x2.globalAlpha=a;x2.drawImage(t3,0,0);x2.globalAlpha=1;x2.globalCompositeOperation="source-over"}
+function grain(a=.12){R2();x2.globalCompositeOperation="overlay";x2.globalAlpha=a;x2.drawImage(noiseC[Math.floor(Math.random()*4)],0,0,W2,H2);x2.globalAlpha=1;x2.globalCompositeOperation="source-over"}
+function vign(a=.6,r0=.35){R2();const g=x2.createRadialGradient(W2/2,H2/2,W2*r0,W2/2,H2/2,W2*.7);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,`rgba(0,0,0,${a})`);x2.fillStyle=g;x2.fillRect(0,0,W2,H2)}
+function pix(n){x3.clearRect(0,0,W2,H2);x3.imageSmoothingEnabled=true;x3.drawImage(cv2,0,0,W2/n,H2/n);R2();x2.imageSmoothingEnabled=false;x2.drawImage(t3,0,0,W2/n,H2/n,0,0,W2,H2);x2.imageSmoothingEnabled=true}
+function pxop(fn){const d=x2.getImageData(0,0,W2,H2),a=d.data;for(let i=0;i<a.length;i+=4){const r=fn(a[i],a[i+1],a[i+2],i);a[i]=r[0];a[i+1]=r[1];a[i+2]=r[2]}x2.putImageData(d,0,0)}
+function post(lv){const s=255/(lv-1);pxop((r,g,b)=>[Math.round(r/s)*s,Math.round(g/s)*s,Math.round(b/s)*s])}
+const lum=(r,g,b)=>.3*r+.59*g+.11*b;
+function edges(col,th=60,a=1){const d=x2.getImageData(0,0,W2,H2),p=d.data,L=new Float32Array(W2*H2);for(let i=0;i<W2*H2;i++)L[i]=lum(p[i*4],p[i*4+1],p[i*4+2]);
+  const out=new Uint8Array(W2*H2);for(let y=1;y<H2-1;y++)for(let x=1;x<W2-1;x++){const i=y*W2+x;const gx=-L[i-W2-1]-2*L[i-1]-L[i+W2-1]+L[i-W2+1]+2*L[i+1]+L[i+W2+1];const gy=-L[i-W2-1]-2*L[i-W2]-L[i-W2+1]+L[i+W2-1]+2*L[i+W2]+L[i+W2+1];if(Math.abs(gx)+Math.abs(gy)>th)out[i]=1}
+  return out}
+function drawEdges(E,rgb,a=1,bg){const d=x2.getImageData(0,0,W2,H2),p=d.data;for(let i=0;i<W2*H2;i++){const j=i*4;if(bg&&!E[i]){p[j]=bg[0];p[j+1]=bg[1];p[j+2]=bg[2]}else if(E[i]){p[j]=p[j]*(1-a)+rgb[0]*a;p[j+1]=p[j+1]*(1-a)+rgb[1]*a;p[j+2]=p[j+2]*(1-a)+rgb[2]*a}}x2.putImageData(d,0,0)}
+function halftone(cell=6,ink,paper="#fffaf0"){const d=x2.getImageData(0,0,W2,H2).data;R2();x2.fillStyle=paper;x2.fillRect(0,0,W2,H2);for(let y=0;y<H2;y+=cell)for(let x=(y/cell%2)*cell/2;x<W2;x+=cell){const j=((y|0)*W2+(x|0))*4,r=d[j],g=d[j+1],b=d[j+2];const k=1-lum(r,g,b)/255;x2.fillStyle=ink||`rgb(${r},${g},${b})`;x2.beginPath();x2.arc(x,y,cell*.62*Math.sqrt(k+.08),0,7);x2.fill()}}
+function scan(a=.18,gap=3){R2();x2.fillStyle=`rgba(0,0,0,${a})`;for(let y=0;y<H2;y+=gap)x2.fillRect(0,y,W2,1)}
+function caberr(o=3){const d=x2.getImageData(0,0,W2,H2),s=new Uint8ClampedArray(d.data),p=d.data;for(let y=0;y<H2;y++)for(let x=0;x<W2;x++){const i=(y*W2+x)*4,xr=Math.min(W2-1,x+o),xb=Math.max(0,x-o);p[i]=s[(y*W2+xr)*4];p[i+2]=s[(y*W2+xb)*4+2]}x2.putImageData(d,0,0)}
+function duo(c1,c2){pxop((r,g,b)=>{const k=lum(r,g,b)/255;return[c1[0]+(c2[0]-c1[0])*k,c1[1]+(c2[1]-c1[1])*k,c1[2]+(c2[2]-c1[2])*k]})}
+function paper(a=.25,tint){if(tint)fillC(tint,"multiply",1);R2();x2.globalCompositeOperation="multiply";x2.globalAlpha=a;x2.drawImage(noiseC[0],0,0,W2,H2);x2.globalAlpha=1;x2.globalCompositeOperation="source-over"}
+function scratches(n=4){R2();x2.strokeStyle="rgba(255,255,255,.5)";x2.lineWidth=1;for(let i=0;i<n;i++){const x=Math.random()*W2;x2.beginPath();x2.moveTo(x,0);x2.lineTo(x+Math.random()*6-3,H2);x2.stroke()}x2.fillStyle="rgba(0,0,0,.6)";for(let i=0;i<8;i++){x2.beginPath();x2.arc(Math.random()*W2,Math.random()*H2,Math.random()*1.6,0,7);x2.fill()}}
+function bars(){R2();x2.fillStyle="#000";const h=H2*.12;x2.fillRect(0,0,W2,h);x2.fillRect(0,H2-h,W2,h)}
+function leak(){R2();const g=x2.createLinearGradient(0,0,W2,0);g.addColorStop(0,"rgba(255,120,40,.55)");g.addColorStop(.35,"rgba(255,80,60,0)");g.addColorStop(1,"rgba(255,200,80,.25)");x2.globalCompositeOperation="screen";x2.fillStyle=g;x2.fillRect(0,0,W2,H2);x2.globalCompositeOperation="source-over"}
+function jitter(a=2){x3.clearRect(0,0,W2,H2);x3.drawImage(cv2,0,0);R2();x2.drawImage(t3,(Math.random()-.5)*a,(Math.random()-.5)*a)}
+function textHud(t,col="#fff",x=12,y=22){R2();x2.fillStyle=col;x2.font="bold 13px monospace";x2.fillText(t,x,y)}
+function frameBorder(col,w,bottom){R2();x2.fillStyle=col;x2.fillRect(0,0,W2,w);x2.fillRect(0,0,w,H2);x2.fillRect(W2-w,0,w,H2);x2.fillRect(0,H2-(bottom||w),W2,bottom||w)}
+function lowpoly(s=26){const d=x2.getImageData(0,0,W2,H2).data;R2();for(let y=-s;y<H2+s;y+=s)for(let x=-s;x<W2+s;x+=s){const o=((y/s)&1)*s/2;[[[x+o,y],[x+o+s,y],[x+o+s/2,y+s]],[[x+o+s,y],[x+o+s*1.5,y+s],[x+o+s/2,y+s]]].forEach(tr=>{const cxp=Math.min(W2-1,Math.max(0,(tr[0][0]+tr[1][0]+tr[2][0])/3|0)),cyp=Math.min(H2-1,Math.max(0,(tr[0][1]+tr[1][1]+tr[2][1])/3|0)),j=(cyp*W2+cxp)*4;x2.fillStyle=`rgb(${d[j]},${d[j+1]},${d[j+2]})`;x2.beginPath();x2.moveTo(...tr[0]);x2.lineTo(...tr[1]);x2.lineTo(...tr[2]);x2.closePath();x2.fill();x2.strokeStyle=x2.fillStyle;x2.stroke()})}}
+function dabs(n=1400,len=7){const d=x2.getImageData(0,0,W2,H2).data;R2();x2.lineCap="round";let s=7;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;for(let i=0;i<n;i++){const x=rnd()*W2|0,y=rnd()*H2|0,j=(y*W2+x)*4,a=rnd()*PI;x2.strokeStyle=`rgb(${d[j]},${d[j+1]},${d[j+2]})`;x2.lineWidth=3+rnd()*2;x2.beginPath();x2.moveTo(x-Math.cos(a)*len/2,y-Math.sin(a)*len/2);x2.lineTo(x+Math.cos(a)*len/2,y+Math.sin(a)*len/2);x2.stroke()}}
+function ascii(col){const d=x2.getImageData(0,0,W2,H2).data,ch=" .:-=+*#%@";R2();x2.fillStyle="#000";x2.fillRect(0,0,W2,H2);x2.font="8px monospace";for(let y=0;y<H2;y+=8)for(let x=0;x<W2;x+=6){const j=(y*W2+x)*4,k=lum(d[j],d[j+1],d[j+2])/255;x2.fillStyle=col||`rgb(${d[j]},${d[j+1]},${d[j+2]})`;x2.fillText(ch[Math.min(9,k*10|0)],x,y+7)}}
+function mirror4(){x3.clearRect(0,0,W2,H2);x3.drawImage(cv2,0,0);R2();x2.save();x2.translate(W2,0);x2.scale(-1,1);x2.drawImage(t3,0,0,W2/2,H2,0,0,W2/2,H2);x2.restore();x3.clearRect(0,0,W2,H2);x3.drawImage(cv2,0,0);x2.save();x2.translate(0,H2);x2.scale(1,-1);x2.drawImage(t3,0,0,W2,H2/2,0,0,W2,H2/2);x2.restore()}
+function glitch(){x3.clearRect(0,0,W2,H2);x3.drawImage(cv2,0,0);R2();for(let i=0;i<7;i++){const y=Math.random()*H2|0,h=4+Math.random()*16|0;x2.drawImage(t3,0,y,W2,h,(Math.random()-.5)*40,y,W2,h)}caberr(4)}
+function gridLines(col,step,a=.5){R2();x2.strokeStyle=col;x2.globalAlpha=a;x2.lineWidth=1;x2.beginPath();for(let x=0;x<W2;x+=step){x2.moveTo(x,0);x2.lineTo(x,H2)}for(let y=0;y<H2;y+=step){x2.moveTo(0,y);x2.lineTo(W2,y)}x2.stroke();x2.globalAlpha=1}
+function synthGrid(){R2();x2.strokeStyle="#ff3cc7";x2.lineWidth=1.2;const hz=H2*.74;x2.beginPath();for(let i=-12;i<=12;i++){x2.moveTo(W2/2+i*12,hz);x2.lineTo(W2/2+i*70,H2)}const t=(performance.now()/40)%20;for(let k=0;k<8;k++){const y=hz+Math.pow(k+t/20,2)*4;x2.moveTo(0,y);x2.lineTo(W2,y)}x2.stroke()}
+
+/* --- Lighting data --- */
+const LROWS=[
+ {k:"setup",l:"Lighting pattern",items:[["none","None",""],["three","Three-point","classic three-point lighting"],["rembrandt","Rembrandt","Rembrandt lighting with a triangle of light on the cheek"],["split","Split","split lighting, half the face in shadow"],["loop","Loop","loop lighting"],["butterfly","Butterfly / Paramount","butterfly (Paramount) lighting from above"],["broad","Broad","broad lighting"],["short","Short","short lighting"],["flat","Flat / frontal","flat frontal lighting"],["side","Hard side light","hard side lighting"],["top","Top light","harsh top light"],["under","Underlighting","eerie underlighting from below"],["cross","Cross lighting","cross lighting from two sides"],["back","Backlight","strong backlight"],["silhouette","Silhouette","silhouette against a bright background"],["cameo","Cameo / spotlight","cameo spotlight in darkness"],["chiaro","Chiaroscuro","dramatic chiaroscuro"]]},
+ {k:"side",l:"Key light side",items:[["left","Left","from the left"],["right","Right","from the right"]]},
+ {k:"q",l:"Quality",items:[["soft","Soft","soft diffused light"],["hard","Hard","hard light with crisp shadows"],["bounce","Bounced","soft bounced light"]]},
+ {k:"key",l:"Key level",range:[["High key","bright high-key lighting",0],["Bright","",.12],["Balanced","",.3],["Moody","moody low-key lighting",.5],["Low key","deep low-key lighting with heavy shadows",.72]]},
+ {k:"tod",l:"Time of day / environment",items:[["none","None",""],["golden","Golden hour","golden hour sunlight"],["sunrise","Sunrise","soft pink sunrise light"],["sunset","Sunset","fiery sunset glow"],["blue","Blue hour","cool blue hour light"],["midday","Harsh midday","harsh midday sun"],["overcast","Overcast","flat overcast daylight"],["twilight","Twilight","purple twilight"],["night","Night","night, dark ambient"],["moon","Moonlight","cold silver moonlight"],["studio","Studio","clean studio lighting on a seamless backdrop"],["interior","Warm interior","warm interior ambient light"]]},
+ {k:"gel",l:"Color temperature / gel",items:[["none","None",""],["warm","Warm tungsten","warm 3200K tungsten tones"],["day","Daylight","neutral 5600K daylight"],["cool","Cool","cool blue tones"],["teal","Teal & orange","teal and orange color contrast"],["neon","Neon pink/blue","pink and blue neon color wash"],["red","Red","deep red light"],["green","Green","sickly green light"],["purple","Purple","purple light"],["amber","Amber","amber glow"],["cyan","Cyan","cyan light"]]},
+ {k:"prac",l:"Practical / motivated light",items:[["none","None",""],["candle","Candlelight","flickering candlelight"],["fire","Firelight","warm flickering firelight"],["lamp","Desk lamp","warm practical lamp"],["neonsign","Neon sign","glowing neon sign"],["tv","TV glow","flickering blue TV glow"],["monitor","Screen glow","cool computer-screen glow on the face"],["street","Sodium streetlight","orange sodium streetlight"],["head","Headlights","sweeping car headlights"],["flash","Flashlight","flashlight beam cutting through darkness"],["police","Police lights","flashing red and blue police lights"],["lightning","Lightning","lightning flashes"],["strobe","Strobe","club strobe light"],["fluor","Fluorescent","flickering fluorescent tubes"],["lantern","Lantern","handheld lantern light"],["window","Window light","soft light through a window"],["fireworks","Fireworks","colorful fireworks lighting the sky"],["biolum","Bioluminescence","glowing bioluminescence"]]},
+ {k:"acc",l:"Accent",items:[["none","None",""],["rim","Rim light","glowing rim light"],["hair","Hair light","hair light"],["kicker","Kicker","edge kicker light"],["catch","Catchlights","sparkling catchlights in the eyes"],["halo","Halo","backlit halo glow"]]},
+ {k:"pat",l:"Shadow pattern (gobo)",items:[["none","None",""],["blinds","Venetian blinds","venetian-blind shadows"],["leaves","Dappled leaves","dappled light through leaves"],["frame","Window frame","window-frame shadow"],["bars","Prison bars","shadows of bars"],["stained","Stained glass","colored stained-glass light"]]},
+ {k:"atm",l:"Atmosphere",items:[["none","None",""],["haze","Haze","light atmospheric haze"],["fog","Thick fog","thick rolling fog"],["rays","God rays","volumetric god rays"],["smoke","Smoke","drifting smoke"],["dust","Dust motes","floating dust motes"],["rain","Rain","falling rain"],["snow","Snow","falling snow"],["mist","Ground mist","low ground mist"],["embers","Embers","floating embers"],["water","Underwater","underwater caustic light"],["flare","Lens flare","lens flare"],["bloom","Bloom","soft bloom glow"]]},
+ {k:"mood",l:"Mood",items:[["none","None",""],["dramatic","Dramatic","dramatic mood"],["moody","Moody","moody"],["mysterious","Mysterious","mysterious"],["romantic","Romantic","romantic"],["eerie","Eerie","eerie"],["ominous","Ominous","ominous"],["serene","Serene","serene"],["hopeful","Hopeful","hopeful"],["melancholic","Melancholic","melancholic"],["tense","Tense","tense"],["dreamy","Dreamy","dreamy"],["nostalgic","Nostalgic","nostalgic"],["epic","Epic","epic"],["gritty","Gritty","gritty"],["whimsical","Whimsical","whimsical"],["ethereal","Ethereal","ethereal"],["cozy","Cozy","cozy"],["lonely","Lonely","lonely"],["euphoric","Euphoric","euphoric"],["menacing","Menacing","menacing"]]}
+];
+const GELC={warm:"#ffb565",day:"#fff6e8",cool:"#9fc4ff",teal:"#ffb070",neon:"#ff4fd8",red:"#ff3b3b",green:"#9dff8a",purple:"#b86bff",amber:"#ffbf3f",cyan:"#5ff1ff",none:"#fff1dc"};
+const LSHOTS=[
+["Three-point lighting","Setup","Key, fill and back light: the standard balanced look.",{setup:"three",acc:"rim"}],
+["Rembrandt lighting","Setup","Triangle of light on the shadow-side cheek.",{setup:"rembrandt",key:3}],
+["Split lighting","Setup","Exactly half the face lit, half in shadow.",{setup:"split",q:"hard",key:3}],
+["Loop lighting","Setup","Small loop-shaped nose shadow; flattering.",{setup:"loop"}],
+["Butterfly / Paramount","Setup","Light high and in front; glamour look.",{setup:"butterfly"}],
+["Broad lighting","Setup","Lit side of the face toward the camera.",{setup:"broad"}],
+["Short lighting","Setup","Shadow side toward the camera; slimming and moody.",{setup:"short",key:3}],
+["Flat lighting","Setup","Even frontal light with almost no shadow.",{setup:"flat",key:0}],
+["Hard side light","Setup","Strong sideways light, deep shadows.",{setup:"side",q:"hard",key:3}],
+["Top light","Setup","Light straight down; hollow eyes.",{setup:"top",q:"hard",key:3}],
+["Underlighting / horror light","Setup","Light from below for a sinister look.",{setup:"under",q:"hard",key:4,mood:"eerie"}],
+["Cross lighting","Setup","Lights from both sides.",{setup:"cross",q:"hard"}],
+["Backlighting","Setup","Main light behind the subject.",{setup:"back",acc:"rim"}],
+["Silhouette lighting","Setup","Subject dark against a bright background.",{setup:"silhouette",tod:"sunset"}],
+["Cameo lighting","Setup","Subject spotlit in a sea of black.",{setup:"cameo",key:4}],
+["Chiaroscuro","Setup","Painterly extreme light-dark contrast.",{setup:"chiaro",q:"hard",key:4,mood:"dramatic"}],
+["Clamshell lighting","Setup","Beauty light from above plus a bounce from below.",{setup:"butterfly",q:"soft",key:0,acc:"catch"}],
+["Motivated lighting","Setup","Light that appears to come from a source in the scene.",{prac:"window",setup:"side"}],
+["High-key lighting","Level","Bright, low-contrast, cheerful.",{key:0,setup:"flat"}],
+["Low-key lighting","Level","Dark, high-contrast, shadowy.",{key:4,setup:"side",q:"hard"}],
+["Soft light","Quality","Large diffused source; gentle shadows.",{q:"soft",setup:"loop"}],
+["Hard light","Quality","Small harsh source; sharp shadows.",{q:"hard",setup:"side"}],
+["Bounce light","Quality","Light bounced off a wall or board.",{q:"bounce",setup:"broad"}],
+["Golden hour","Time","Warm low sun just after sunrise or before sunset.",{tod:"golden",acc:"rim",atm:"flare"}],
+["Magic hour","Time","Another name for golden hour.",{tod:"golden",atm:"haze"}],
+["Sunrise light","Time","Soft pink early-morning glow.",{tod:"sunrise",atm:"mist"}],
+["Sunset glow","Time","Deep orange low sun.",{tod:"sunset",acc:"rim"}],
+["Blue hour","Time","Cool twilight just after sunset.",{tod:"blue"}],
+["Harsh midday sun","Time","Overhead sun with hard shadows.",{tod:"midday",setup:"top",q:"hard"}],
+["Overcast daylight","Time","Flat, shadowless cloudy light.",{tod:"overcast",q:"soft"}],
+["Twilight","Time","Purple dusk.",{tod:"twilight"}],
+["Night exterior","Time","Dark night with little ambient light.",{tod:"night",key:3}],
+["Moonlight","Time","Cool silver night light.",{tod:"moon",acc:"rim"}],
+["Day-for-night","Time","Daylight graded to look like night.",{tod:"moon",gel:"cool",key:3}],
+["Studio seamless","Time","Clean studio backdrop.",{tod:"studio",setup:"three"}],
+["Natural window light","Practical","Soft light from a nearby window.",{prac:"window",q:"soft"}],
+["Candlelight","Practical","Small warm flickering source.",{prac:"candle",tod:"night",key:4,mood:"romantic"}],
+["Firelight","Practical","Campfire or fireplace glow.",{prac:"fire",tod:"night",key:3,atm:"embers"}],
+["Practical lamp","Practical","A visible lamp lights the scene.",{prac:"lamp",tod:"interior",key:3}],
+["Neon sign glow","Practical","Colored neon spilling on the subject.",{prac:"neonsign",tod:"night",gel:"neon",key:3}],
+["TV glow","Practical","Flickering blue light from a television.",{prac:"tv",tod:"night",key:4}],
+["Screen glow","Practical","Phone or monitor light on the face.",{prac:"monitor",tod:"night",key:4}],
+["Sodium streetlight","Practical","Orange city-street light.",{prac:"street",tod:"night",key:3}],
+["Car headlights","Practical","Headlight beams sweep the scene.",{prac:"head",tod:"night",key:4,atm:"haze"}],
+["Flashlight beam","Practical","A beam searching the dark.",{prac:"flash",tod:"night",key:4,atm:"dust"}],
+["Police lights","Practical","Red and blue flashing.",{prac:"police",tod:"night",key:3}],
+["Lightning flash","Practical","Sudden bright flashes in a storm.",{prac:"lightning",tod:"night",atm:"rain",key:4}],
+["Strobe light","Practical","Rapid club flashes.",{prac:"strobe",tod:"night",key:4,atm:"smoke"}],
+["Flickering fluorescent","Practical","Green-white tubes buzzing on and off.",{prac:"fluor",gel:"green",key:3,mood:"eerie"}],
+["Lantern light","Practical","Warm handheld lantern.",{prac:"lantern",tod:"night",key:4}],
+["Fireworks light","Practical","Bursts of colored light.",{prac:"fireworks",tod:"night",key:3}],
+["Bioluminescent glow","Practical","Cyan glowing organisms.",{prac:"biolum",tod:"night",key:4,mood:"ethereal"}],
+["Rim light","Accent","Bright outline separating subject from background.",{acc:"rim",key:3}],
+["Hair light","Accent","Light on top of the hair.",{acc:"hair"}],
+["Kicker light","Accent","Edge light on one side.",{acc:"kicker",setup:"short"}],
+["Catchlights","Accent","Sparkle reflected in the eyes.",{acc:"catch",setup:"loop"}],
+["Halo backlight","Accent","Glowing halo behind the head.",{acc:"halo",setup:"back",mood:"ethereal"}],
+["Venetian blind shadows","Pattern","Noir stripes of light across the frame.",{pat:"blinds",key:3,q:"hard",mood:"mysterious"}],
+["Dappled light","Pattern","Sun through leaves.",{pat:"leaves",tod:"golden"}],
+["Window-frame shadow","Pattern","Cross shadow from a window frame.",{pat:"frame",q:"hard"}],
+["Prison-bar shadows","Pattern","Vertical bar shadows.",{pat:"bars",key:3,q:"hard",mood:"tense"}],
+["Stained-glass light","Pattern","Colored patches of church light.",{pat:"stained",atm:"rays"}],
+["Cookie / cucoloris","Pattern","Broken-up random shadow pattern.",{pat:"leaves",key:2}],
+["God rays","Atmosphere","Visible beams through haze.",{atm:"rays",tod:"golden"}],
+["Volumetric lighting","Atmosphere","Light shafts in thick atmosphere.",{atm:"rays",key:3,mood:"epic"}],
+["Atmospheric haze","Atmosphere","Soft haze that lifts the shadows.",{atm:"haze"}],
+["Thick fog","Atmosphere","Dense fog swallowing the background.",{atm:"fog",mood:"mysterious"}],
+["Smoky room","Atmosphere","Drifting smoke catching light.",{atm:"smoke",key:3,prac:"lamp"}],
+["Dust motes","Atmosphere","Glittering dust in a light beam.",{atm:"dust",prac:"window"}],
+["Rainy night","Atmosphere","Wet night with rain.",{atm:"rain",tod:"night",prac:"street",key:3}],
+["Snowfall","Atmosphere","Soft falling snow.",{atm:"snow",tod:"overcast"}],
+["Ground mist","Atmosphere","Low mist hugging the ground.",{atm:"mist",tod:"moon"}],
+["Floating embers","Atmosphere","Sparks drifting upward.",{atm:"embers",prac:"fire",tod:"night",key:3}],
+["Underwater caustics","Atmosphere","Rippling light patterns.",{atm:"water"}],
+["Lens flare","Atmosphere","Streaks and orbs from a bright source.",{atm:"flare",tod:"golden"}],
+["Bloom glow","Atmosphere","Highlights softly glowing.",{atm:"bloom",mood:"dreamy"}],
+["Film noir","Look","Hard key, low key, blind shadows, smoke.",{setup:"side",q:"hard",key:4,pat:"blinds",atm:"smoke",mood:"mysterious"}],
+["Neo-noir neon","Look","Neon colors, rain, deep shadow.",{prac:"neonsign",gel:"neon",tod:"night",atm:"rain",key:3}],
+["Cyberpunk neon","Look","Saturated pink and cyan city glow.",{gel:"neon",prac:"neonsign",atm:"haze",tod:"night",mood:"tense"}],
+["Teal and orange blockbuster","Look","Warm skin against cool shadows.",{gel:"teal",acc:"rim",mood:"epic"}],
+["Horror lighting","Look","Underlit, green, flickering.",{setup:"under",gel:"green",prac:"fluor",key:4,mood:"eerie"}],
+["Thriller lighting","Look","Low key, hard side light, cold.",{setup:"side",gel:"cool",key:4,mood:"tense"}],
+["Romantic glow","Look","Warm, soft and blooming.",{gel:"warm",q:"soft",atm:"bloom",mood:"romantic"}],
+["Dreamy pastel","Look","Bright, soft and hazy.",{key:0,atm:"bloom",q:"soft",mood:"dreamy"}],
+["Ethereal heavenly light","Look","White glow with rays and halo.",{atm:"rays",acc:"halo",key:0,mood:"ethereal"}],
+["Epic heroic","Look","Rim-lit, volumetric, golden.",{tod:"golden",acc:"rim",atm:"rays",mood:"epic"}],
+["Gritty realism","Look","Desaturated, harsh and dirty.",{tod:"overcast",q:"hard",mood:"gritty"}],
+["Cozy warm interior","Look","Lamplight and amber tones.",{tod:"interior",prac:"lamp",gel:"amber",mood:"cozy"}],
+["Melancholic blue","Look","Cool, soft, sad.",{tod:"blue",gel:"cool",mood:"melancholic"}],
+["Lonely night","Look","Single streetlight, empty dark.",{prac:"street",tod:"night",key:4,mood:"lonely"}],
+["Nostalgic warmth","Look","Faded golden memory feel.",{tod:"golden",atm:"haze",mood:"nostalgic"}],
+["Ominous red","Look","Red-lit, dark, threatening.",{gel:"red",key:4,mood:"ominous"}],
+["Menacing underlight","Look","Red from below.",{setup:"under",gel:"red",key:4,mood:"menacing"}],
+["Whimsical storybook","Look","Bright, colorful, playful.",{key:0,tod:"golden",mood:"whimsical"}],
+["Euphoric club","Look","Strobe, smoke and color.",{prac:"strobe",gel:"neon",atm:"smoke",mood:"euphoric"}],
+["Serene morning","Look","Soft calm sunrise.",{tod:"sunrise",q:"soft",atm:"mist",mood:"serene"}],
+["Hopeful dawn","Look","Golden rays breaking through.",{tod:"sunrise",atm:"rays",mood:"hopeful"}],
+["Interrogation room","Look","Single harsh top light in darkness.",{setup:"top",q:"hard",key:4,atm:"smoke",mood:"tense"}],
+["Campfire stories","Look","Underlit warm flicker.",{setup:"under",prac:"fire",tod:"night",atm:"embers"}],
+["Stage spotlight","Look","Single spot on a performer.",{setup:"cameo",key:4,atm:"haze"}],
+["Concert lighting","Look","Colored beams and haze.",{prac:"strobe",gel:"purple",atm:"rays",key:3}],
+["Hospital fluorescent","Look","Cold flat overhead tubes.",{prac:"fluor",setup:"top",q:"soft",gel:"green"}],
+["Beauty lighting","Look","Soft, even, flattering.",{setup:"butterfly",q:"soft",key:0,acc:"catch"}],
+["Product rim lighting","Look","Studio with strong edge lights.",{tod:"studio",acc:"rim",key:3}],
+["Sci-fi cool tech","Look","Cyan accents in darkness.",{gel:"cyan",prac:"monitor",key:4}],
+["Apocalyptic sky","Look","Smoky orange haze.",{tod:"sunset",atm:"smoke",gel:"amber",mood:"ominous"}],
+["Storm light","Look","Dark, rain, lightning.",{tod:"night",prac:"lightning",atm:"rain",mood:"dramatic"}],
+["Winter cold light","Look","Pale, cool, snowy.",{tod:"overcast",gel:"cool",atm:"snow"}],
+["Desert heat","Look","Harsh bleaching sun with haze.",{tod:"midday",q:"hard",atm:"haze",gel:"amber"}],
+["Jungle dapple","Look","Green dappled shade with humid haze.",{pat:"leaves",gel:"green",atm:"haze"}],
+["Underwater dream","Look","Blue caustics and rays.",{atm:"water",gel:"cyan",mood:"dreamy"}],
+["Church light","Look","Stained glass and god rays.",{pat:"stained",atm:"rays",mood:"serene"}],
+["Haunted house","Look","Moonlight, fog, flicker.",{tod:"moon",atm:"fog",prac:"candle",mood:"eerie"}]
+];
+
+/* --- Style data --- */
+const SROWS=[
+ {k:"md",l:"Medium / look",items:[["none","None",""],["photo","Photorealistic","photorealistic"],["cine","Cinematic film","cinematic film look"],["f35","35mm film","shot on 35mm film"],["f16","16mm film","grainy 16mm film"],["s8","Super 8","Super 8 home movie"],["vhs","VHS","1980s VHS tape footage"],["bw","Black & white","black-and-white"],["noir","Film noir","classic film noir"],["silent","Silent film","1920s silent film"],["sepia","Sepia vintage","sepia-toned vintage photograph"],["polaroid","Polaroid","faded Polaroid instant photo"],["techni","Technicolor","vivid 1950s Technicolor"],["doc","Documentary","natural documentary style"],["found","Found footage","found-footage camcorder"],["security","Security cam","grainy security camera footage"],["night","Night vision","green night-vision footage"],["thermal","Thermal","thermal-camera imaging"],["ir","Infrared","infrared photography"],["anime","Anime","anime cel animation"],["cartoon3d","3D animated","polished 3D animated feature film"],["clay","Claymation","claymation stop-motion"],["hand2d","2D hand-drawn","2D hand-drawn animation"],["roto","Rotoscope","rotoscoped animation"],["comic","Comic book","comic book with halftone dots and ink lines"],["manga","Manga ink","black-and-white manga ink with screentones"],["pop","Pop art","bold pop art"],["water","Watercolor","watercolor painting"],["oil","Oil painting","oil painting"],["impress","Impressionist","impressionist brushstrokes"],["sketch","Pencil sketch","pencil sketch"],["charcoal","Charcoal","charcoal drawing"],["ukiyo","Ukiyo-e","ukiyo-e woodblock print"],["linocut","Linocut","linocut print"],["riso","Risograph","risograph print"],["pixel","Pixel art","16-bit pixel art"],["lowpoly","Low-poly 3D","low-poly 3D"],["voxel","Voxel","voxel art"],["paper","Paper cutout","layered paper cutout"],["stained","Stained glass","stained glass"],["mosaic","Mosaic","tile mosaic"],["ascii","ASCII","ASCII art"],["glitch","Glitch art","digital glitch art"],["synth","Synthwave","neon synthwave"],["vapor","Vaporwave","pastel vaporwave aesthetic"],["cyber","Cyberpunk","cyberpunk aesthetic"],["steam","Steampunk","steampunk aesthetic"],["deco","Art Deco","Art Deco"],["nouveau","Art Nouveau","Art Nouveau"],["bauhaus","Bauhaus","Bauhaus poster design"],["surreal","Surrealism","surrealist dreamscape"],["blueprint","Blueprint","technical blueprint"],["neonline","Neon line art","glowing neon line art"],["chalk","Chalkboard","chalk drawing on a blackboard"],["graffiti","Graffiti","street-art graffiti mural"],["double","Double exposure","double exposure"],["kaleido","Kaleidoscope","kaleidoscopic mirrored imagery"],["mini","Miniature","tilt-shift miniature world"]]},
+ {k:"era",l:"Era",items:[["none","None",""],["1920","1920s","1920s"],["1950","1950s","1950s"],["1970","1970s","1970s"],["1980","1980s","1980s"],["1990","1990s","1990s"],["y2k","Y2K","Y2K early-2000s"],["future","Futuristic","futuristic"]]},
+ {k:"gr",l:"Color grade",items:[["none","None",""],["teal","Teal & orange","teal and orange grade"],["bleach","Bleach bypass","bleach bypass grade"],["desat","Desaturated","desaturated muted palette"],["vibrant","Vibrant","vibrant saturated colors"],["pastel","Pastel","soft pastel palette"],["mono","Monochrome","monochrome"],["duo","Duotone","duotone"],["warm","Warm","warm color grade"],["cool","Cool","cool color grade"],["cross","Cross-processed","cross-processed film colors"],["faded","Faded matte","faded matte blacks"],["hicon","High contrast","high contrast"]]},
+ {k:"tx",l:"Texture / finish",items:[["none","None",""],["grain","Film grain","fine film grain"],["heavy","Heavy grain","heavy grain"],["scan","Scanlines","CRT scanlines"],["leak","Light leaks","light leaks"],["scratch","Dust & scratches","dust and scratches"],["ca","Chromatic aberration","chromatic aberration"],["bloom","Bloom","glowing bloom"],["vig","Vignette","vignette"],["letter","Letterbox","2.39:1 letterbox"],["halftone","Halftone","halftone dots"],["paper","Paper texture","paper texture"]]},
+ {k:"dt",l:"Detail",items:[["none","None",""],["hd","High detail","highly detailed"],["ultra","Ultra-detailed 8K","ultra-detailed, 8K"],["hyper","Hyperreal","hyperrealistic"],["painterly","Painterly","painterly"],["minimal","Minimalist","minimalist"]]}
+];
+const SSHOTS=[];
+SROWS[0].items.slice(1).forEach(([k,l,p])=>SSHOTS.push([l,"Medium",p[0].toUpperCase()+p.slice(1)+".",{md:k}]));
+[
+["Hollywood blockbuster","Look","Glossy, teal-orange, letterboxed.",{md:"cine",gr:"teal",tx:"letter",dt:"ultra"}],
+["Indie film","Look","Natural, muted, grainy.",{md:"f35",gr:"desat",tx:"grain"}],
+["A24-style indie drama","Look","Quiet, muted, filmic texture.",{md:"f35",gr:"faded",tx:"grain"}],
+["Symmetrical pastel whimsy","Look","Pastel, centered, storybook neatness.",{md:"cine",gr:"pastel",dt:"minimal"}],
+["Gritty war film","Look","Bleach bypass, heavy grain.",{md:"cine",gr:"bleach",tx:"heavy"}],
+["Music video","Look","Vibrant, light leaks, chromatic edges.",{md:"cine",gr:"vibrant",tx:"leak"}],
+["Glossy commercial","Look","Clean, bright, high detail.",{md:"photo",gr:"vibrant",tx:"bloom",dt:"hd"}],
+["Studio product photography","Look","Crisp product on a seamless backdrop.",{md:"photo",dt:"ultra",tx:"vig"}],
+["Fashion editorial","Look","High contrast, cool, magazine polish.",{md:"photo",gr:"hicon",dt:"hd"}],
+["Nature documentary","Look","Natural, crisp, telephoto look.",{md:"doc",dt:"ultra"}],
+["Home video 1990s","Look","Camcorder, VHS texture.",{md:"vhs",era:"1990"}],
+["80s VHS horror","Look","Grainy tape, scanlines.",{md:"vhs",era:"1980",tx:"scan"}],
+["70s grindhouse","Look","Scratched, warm, faded.",{md:"f35",era:"1970",tx:"scratch",gr:"warm"}],
+["1950s Technicolor musical","Look","Saturated golden-age color.",{md:"techni",era:"1950"}],
+["1920s silent film","Look","Flickering black and white.",{md:"silent",era:"1920"}],
+["Daguerreotype","Look","Earliest photographs: silvery and vignetted.",{md:"sepia",tx:"vig",gr:"mono"}],
+["Tintype portrait","Look","Dark, metallic, aged.",{md:"sepia",tx:"scratch",gr:"hicon"}],
+["Y2K digicam","Look","Early digital camera with flash look.",{md:"photo",era:"y2k",gr:"cool",tx:"ca"}],
+["Lo-fi aesthetic","Look","Soft, grainy, nostalgic.",{md:"f16",gr:"faded",tx:"grain"}],
+["Dreamcore","Look","Hazy, pastel, uncanny.",{md:"surreal",gr:"pastel",tx:"bloom"}],
+["Liminal space","Look","Empty, flat, eerie.",{md:"photo",gr:"desat",dt:"minimal"}],
+["Retrofuturism","Look","Yesterday's vision of tomorrow.",{md:"deco",era:"1950",gr:"warm"}],
+["Outrun","Look","Neon grid sunset racing.",{md:"synth",era:"1980"}],
+["Solarpunk","Look","Bright green optimistic future.",{md:"water",era:"future",gr:"vibrant"}],
+["Dieselpunk","Look","Gritty 1940s industrial.",{md:"steam",gr:"desat"}],
+["Biopunk","Look","Organic sci-fi, sickly greens.",{md:"cyber",gr:"cross"}],
+["Dark fantasy","Look","Painterly, moody, detailed.",{md:"oil",gr:"desat",dt:"hd"}],
+["High fantasy illustration","Look","Rich painterly epic art.",{md:"oil",gr:"vibrant",dt:"ultra"}],
+["Storybook illustration","Look","Soft watercolor children's book.",{md:"water",gr:"pastel",tx:"paper"}],
+["Studio Ghibli-inspired","Look","Lush hand-painted anime backgrounds.",{md:"anime",gr:"pastel",dt:"painterly"}],
+["Shonen anime action","Look","Bold, saturated, speed-lined.",{md:"anime",gr:"vibrant",dt:"hd"}],
+["90s anime","Look","Cel-shaded with VHS softness.",{md:"anime",era:"1990",tx:"grain"}],
+["Webtoon","Look","Clean digital comic.",{md:"comic",gr:"vibrant",dt:"minimal"}],
+["Graphic novel noir","Look","Black, white and red ink.",{md:"manga",gr:"hicon"}],
+["Saturday-morning cartoon","Look","Flat bright 2D.",{md:"hand2d",gr:"vibrant"}],
+["Stop-motion puppet","Look","Handmade miniature animation.",{md:"clay",tx:"vig"}],
+["Felt / craft animation","Look","Soft handmade textures.",{md:"paper",gr:"pastel",tx:"paper"}],
+["Origami world","Look","Folded paper geometry.",{md:"lowpoly",gr:"pastel",tx:"paper"}],
+["Isometric diorama","Look","Tidy miniature 3D world.",{md:"lowpoly",dt:"minimal"}],
+["Video game cutscene","Look","High-end real-time 3D.",{md:"cartoon3d",dt:"ultra",tx:"bloom"}],
+["8-bit retro game","Look","Chunky pixels, few colors.",{md:"pixel",era:"1980"}],
+["PS1 graphics","Look","Wobbly low-poly 90s 3D.",{md:"lowpoly",era:"1990",tx:"scan"}],
+["Unreal Engine realism","Look","Ultra-real game-engine render.",{md:"photo",dt:"ultra",tx:"bloom"}],
+["Holographic","Look","Shimmering iridescent tech.",{md:"neonline",gr:"cool",tx:"scan"}],
+["Matrix code","Look","Green terminal characters.",{md:"ascii",gr:"mono"}],
+["Datamosh","Look","Melting broken video.",{md:"glitch",tx:"ca"}],
+["Thermal surveillance","Look","Heat-map vision.",{md:"thermal"}],
+["Bodycam realism","Look","Raw, shaky, timestamped.",{md:"found",tx:"ca"}],
+["Mockumentary","Look","Handheld documentary comedy.",{md:"doc",tx:"grain"}],
+["Expressionist film","Look","Stark angular shadows, B&W.",{md:"noir",era:"1920",gr:"hicon"}],
+["Neo-noir","Look","Modern noir with neon color.",{md:"cine",gr:"hicon",tx:"grain"}],
+["Psychedelic","Look","Swirling saturated colors.",{md:"kaleido",gr:"vibrant",era:"1970"}],
+["Pop surrealism","Look","Candy-colored strange worlds.",{md:"surreal",gr:"vibrant"}],
+["Abstract expressionism","Look","Wild painterly marks.",{md:"impress",gr:"vibrant",dt:"painterly"}],
+["Minimalist vector","Look","Flat simple shapes.",{md:"bauhaus",dt:"minimal"}],
+["Editorial illustration","Look","Magazine-style textured art.",{md:"riso",tx:"paper"}],
+["Woodcut print","Look","Carved black lines.",{md:"linocut",tx:"paper"}],
+["Gouache painting","Look","Opaque matte paint.",{md:"oil",gr:"pastel",tx:"paper"}],
+["Ink wash (sumi-e)","Look","Flowing black ink on paper.",{md:"water",gr:"mono",tx:"paper"}],
+["Botanical illustration","Look","Delicate scientific drawing.",{md:"sketch",gr:"pastel",tx:"paper"}],
+["Caricature","Look","Exaggerated cartoon portrait.",{md:"hand2d",gr:"vibrant"}],
+["Photomontage collage","Look","Cut-and-paste photo collage.",{md:"paper",gr:"cross",tx:"halftone"}],
+["Vintage travel poster","Look","Flat color, limited palette.",{md:"deco",gr:"warm",tx:"paper"}],
+["Propaganda poster","Look","Bold red, black and cream.",{md:"bauhaus",gr:"hicon",tx:"paper"}],
+["Tarot card art","Look","Ornate illustrated borders.",{md:"nouveau",gr:"warm"}],
+["Cosmic horror","Look","Dark, grainy, unsettling.",{md:"cine",gr:"cross",tx:"heavy"}],
+["Ethereal fantasy","Look","Glowing soft pastel.",{md:"cine",gr:"pastel",tx:"bloom"}]
+].forEach(s=>SSHOTS.push(s));
+
+/* --- Lighting renderer --- */
+function lightFX(st,t){
+  const rnd=Math.random, fl=(a)=>1-a+a*(.5+.5*Math.sin(t*11)*Math.sin(t*7.3)+(rnd()-.5)*.3);
+  const side=st.side==="left"?-1:1, col=GELC[st.gel]||GELC.none, hard=st.q==="hard";
+  const tod={golden:["#ffc98a","#ff9a3c",.12],sunrise:["#ffc2b0","#ff8fb1",.1],sunset:["#ff9b6b","#ff5a2a",.12],blue:["#6d86c9","#2e4fa8",.05],midday:["#ffffff","#ffffff",.08],overcast:["#c9cbd1",null,0],twilight:["#8a6cb0","#5a3a8a",.06],night:["#2a3460",null,0],moon:["#4a5f94","#a8c0ff",.06],studio:["#ffffff",null,0],interior:["#e8c49a","#ffa860",.06]}[st.tod];
+  if(st.tod==="overcast")refilter("saturate(.55)");
+  if(tod){fillC(tod[0],"multiply");if(tod[1])fillC(tod[1],"screen",tod[2])}
+  if(st.gel!=="none"&&st.gel!=="day"){if(st.gel==="teal"){fillC("#1f6f78","multiply",.35);fillC("#00b3c4","screen",.05)}else if(st.gel==="neon"){glow(120,240,420,"#ff3cc7",.55);glow(680,240,420,"#2ec5ff",.55)}else fillC(col,"multiply",.45)}
+  const lv=LROWS[3].range[st.key][2];const dark=Math.max(lv,{night:.35,moon:.25}[st.tod]||0);
+  if(dark)fillC(`rgba(0,0,0,${dark})`);
+  // key light
+  const S=st.setup, kx={side:400+side*230,top:400,under:400,flat:400,butterfly:400,back:400,silhouette:400}[S]??400+side*170;
+  const ky={top:40,under:430,butterfly:120}[S]??200;
+  const kr=hard?170:300, ka=S==="none"?0:.55+dark*.6;
+  if(S!=="none"&&S!=="silhouette"&&S!=="back"){
+    if(S==="cameo")glow(400,250,170,col,1,"screen",true);
+    else if(S==="cross"){glow(400-260,220,kr,col,ka);glow(400+260,220,kr,GELC.cool,ka)}
+    else glow(kx,ky,kr,col,ka,"screen",hard);
+    if(S==="three"){glow(400-side*200,230,320,"#ffffff",.18)}
+  }
+  if(S==="back"||S==="silhouette")glow(400,220,260,"#fff3d6",S==="silhouette"?.85:.6);
+  // face shading (head at 400,212 r22)
+  L2();x2.save();x2.beginPath();x2.arc(400,212,23,0,7);x2.clip();
+  const shade=(a)=>{x2.globalCompositeOperation="multiply";x2.fillStyle=`rgba(20,15,30,${a})`};
+  if(S==="split"||S==="side"||S==="chiaro"){shade(.85);x2.fillRect(side>0?370:400,185,30,60)}
+  if(S==="rembrandt"){shade(.8);x2.fillRect(side>0?370:400,185,30,60);x2.globalCompositeOperation="screen";x2.fillStyle="rgba(255,220,180,.8)";x2.beginPath();const cxp=400-side*8;x2.moveTo(cxp-5*side,212);x2.lineTo(cxp+3*side,212);x2.lineTo(cxp,222);x2.fill()}
+  if(S==="loop"){shade(.55);x2.beginPath();x2.ellipse(400-side*5,220,4,3,0,0,7);x2.fill()}
+  if(S==="short"){shade(.6);x2.fillRect(side>0?370:404,185,26,60)}
+  if(S==="broad"){shade(.4);x2.fillRect(side>0?370:414,185,16,60)}
+  if(S==="butterfly"){shade(.55);x2.beginPath();x2.ellipse(400,221,4,2.5,0,0,7);x2.fill()}
+  if(S==="top"){const g=x2.createLinearGradient(0,195,0,235);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(10,5,20,.8)");x2.globalCompositeOperation="multiply";x2.fillStyle=g;x2.fillRect(370,185,60,60)}
+  if(S==="under"){const g=x2.createLinearGradient(0,235,0,190);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(10,5,20,.85)");x2.globalCompositeOperation="multiply";x2.fillStyle=g;x2.fillRect(370,185,60,60)}
+  if(S==="cross"){shade(.5);x2.fillRect(396,185,8,60)}
+  x2.restore();
+  if(S==="side"||S==="chiaro"){L2();x2.globalCompositeOperation="multiply";x2.fillStyle="rgba(20,15,30,.7)";x2.fillRect(side>0?378:400,236,22,90);x2.globalCompositeOperation="source-over"}
+  if(S==="under")glow(400,330,150,col,.6);
+  if(S==="top")glow(400,120,140,col,.5);
+  // practicals
+  const P=st.prac;
+  if(P==="candle"||P==="lantern"){const x=P==="candle"?340:450,y=P==="candle"?300:290,f=fl(.35);glow(x,y,240*f,"#ffb347",.75);L2();x2.fillStyle="#ffe08a";x2.beginPath();x2.ellipse(x,y,4,9*f,0,0,7);x2.fill();if(P==="candle"){x2.fillStyle="#f2ead8";x2.fillRect(x-5,y+8,10,26)}else{x2.strokeStyle="#3a2a1a";x2.lineWidth=3;x2.strokeRect(x-9,y-12,18,26)}}
+  if(P==="fire"){const f=fl(.4);glow(400,470,380*f,"#ff7a1a",.85);glow(400,470,200*f,"#ffd25a",.6)}
+  if(P==="lamp")glow(400-side*230,230,330,"#ffc070",.7);
+  if(P==="neonsign"){glow(260,120,300,"#ff3cc7",.7);L2();x2.fillStyle="#ff7ae0";x2.fillRect(190,108,140,14);x2.fillStyle="#fff";x2.fillRect(194,112,132,6)}
+  if(P==="tv"){glow(400,300,330,`rgba(120,170,255,1)`,.45+.35*rnd())}
+  if(P==="monitor")glow(400,240,120,"#9cc7ff",.85);
+  if(P==="street"){L2();x2.globalCompositeOperation="screen";const g=x2.createLinearGradient(560,40,500,380);g.addColorStop(0,"rgba(255,160,60,.75)");g.addColorStop(1,"rgba(255,160,60,0)");x2.fillStyle=g;x2.beginPath();x2.moveTo(560,40);x2.lineTo(330,450);x2.lineTo(760,450);x2.fill();x2.globalCompositeOperation="source-over";x2.fillStyle="#ffcf7a";x2.fillRect(548,30,26,8)}
+  if(P==="head"){const x=((t*220)%1300)-250;glow(x,280,260,"#fffbe8",.85);glow(x+160,280,260,"#fffbe8",.85)}
+  if(P==="flash"){const x=400+Math.sin(t*1.4)*260,y=240+Math.sin(t*2.1)*60;glow(x,y,110,"#fffbe0",1,"screen",true)}
+  if(P==="police"){const on=Math.floor(t*4)%2;glow(on?120:680,200,420,on?"#ff2a2a":"#2a5cff",.75)}
+  if(P==="lightning"&&(t%3.2<.12||(t%3.2>.22&&t%3.2<.3)))fillC("#e8eeff","screen",.8);
+  if(P==="strobe"&&Math.floor(t*9)%3===0)fillC("#ffffff","screen",.7);
+  if(P==="fluor"){const on=rnd()>.12;if(on)glow(400,60,420,"#e8ffe8",.6);L2();x2.fillStyle=on?"#f4fff4":"#556";x2.fillRect(300,30,200,8)}
+  if(P==="window"){L2();x2.globalCompositeOperation="screen";x2.fillStyle="rgba(220,235,255,.45)";x2.beginPath();x2.moveTo(0,80);x2.lineTo(260,120);x2.lineTo(520,450);x2.lineTo(0,450);x2.fill();x2.globalCompositeOperation="source-over"}
+  if(P==="fireworks"){const k=(t*.8)%1,cols=["#ff4f6d","#ffd34d","#5cf0ff","#b56bff"];[[220,90],[560,70],[400,120]].forEach(([x,y],i)=>{const kk=(k+i*.33)%1;glow(x,y,60+200*kk,cols[(i+Math.floor(t*.8))%4],(1-kk)*.7);L2();x2.fillStyle=cols[i];for(let a=0;a<14;a++){x2.beginPath();x2.arc(x+Math.cos(a/14*2*PI)*110*kk,y+Math.sin(a/14*2*PI)*110*kk+40*kk*kk,2,0,7);x2.fill()}})}
+  if(P==="biolum"){L2();for(let i=0;i<60;i++){const x=(i*97)%800,y=330+(i*53)%120;glow(x,y,18,"#5ff1ff",.5+.5*Math.sin(t*2+i))}}
+  // accents
+  const A=st.acc;
+  if(A==="rim"||A==="kicker"||A==="halo"||S==="back"||S==="three"){L2();x2.globalCompositeOperation="screen";x2.filter="blur(2px)";x2.strokeStyle=st.gel==="teal"?"#ffd08a":"#fff3dc";x2.lineWidth=3;
+    const both=A!=="kicker";[1,-1].forEach(sd=>{if(!both&&sd!==side)return;x2.beginPath();x2.arc(400,212,23,sd>0?-1.2:PI-.2,sd>0?.2:PI+1.2);x2.stroke();x2.beginPath();x2.moveTo(400+sd*22,240);x2.lineTo(400+sd*22,320);x2.stroke()});x2.filter="none";x2.globalCompositeOperation="source-over";R2()}
+  if(A==="hair"){L2();x2.globalCompositeOperation="screen";x2.fillStyle="rgba(255,240,210,.8)";x2.beginPath();x2.ellipse(400,195,18,6,0,0,7);x2.fill();x2.globalCompositeOperation="source-over"}
+  if(A==="halo")glow(400,205,90,"#fff6d8",.8);
+  if(A==="catch"){L2();x2.fillStyle="#fff";[393,407].forEach(x=>{x2.beginPath();x2.arc(x+1,208,1.2,0,7);x2.fill()})}
+  // patterns
+  const PT=st.pat;L2();x2.globalCompositeOperation="multiply";x2.fillStyle="rgba(10,8,20,.6)";
+  if(PT==="blinds"){x2.save();x2.translate(400,225);x2.rotate(-.35);for(let y=-500;y<500;y+=26)x2.fillRect(-700,y,1400,12);x2.restore()}
+  if(PT==="bars"){for(let x=0;x<800;x+=70)x2.fillRect(x,0,18,450)}
+  if(PT==="frame"){x2.fillRect(300,0,22,450);x2.fillRect(0,170,800,22)}
+  if(PT==="leaves"){for(let i=0;i<40;i++){x2.beginPath();x2.ellipse((i*173+Math.sin(t*.8+i)*6)%800,(i*97)%450,30+(i%4)*12,18,i,0,7);x2.fill()}}
+  x2.globalCompositeOperation="source-over";
+  if(PT==="stained"){const cs=["#ff3b5c","#3b7bff","#ffd23b","#3bff8c","#c03bff"];for(let i=0;i<14;i++)glow(150+(i*137)%520,80+(i*71)%320,70,cs[i%5],.4)}
+  // atmosphere
+  const AT=st.atm;
+  if(AT==="haze")fillC("#e8e4f0","screen",.18);
+  if(AT==="fog"){L2();const g=x2.createLinearGradient(0,120,0,450);g.addColorStop(0,"rgba(220,225,235,.25)");g.addColorStop(1,"rgba(220,225,235,.75)");x2.fillStyle=g;x2.fillRect(0,0,800,450)}
+  if(AT==="mist"){L2();for(let i=0;i<6;i++){x2.fillStyle="rgba(235,240,250,.22)";x2.beginPath();x2.ellipse(((i*190+t*20)%1100)-150,390+(i%2)*25,240,40,0,0,7);x2.fill()}}
+  if(AT==="rays"){L2();x2.globalCompositeOperation="screen";x2.filter="blur(6px)";for(let i=0;i<6;i++){const a=.2+i*.13;x2.fillStyle=`rgba(255,240,200,${.12+.05*Math.sin(t+i)})`;x2.beginPath();x2.moveTo(80,-20);x2.lineTo(80+Math.cos(a)*1100,-20+Math.sin(a)*1100);x2.lineTo(80+Math.cos(a+.06)*1100,-20+Math.sin(a+.06)*1100);x2.fill()}x2.filter="none";x2.globalCompositeOperation="source-over"}
+  if(AT==="smoke"){L2();x2.filter="blur(10px)";for(let i=0;i<8;i++){x2.fillStyle="rgba(200,200,210,.18)";x2.beginPath();x2.ellipse(((i*130+t*25)%1000)-100,120+Math.sin(t*.7+i)*60+i*30,140,40,Math.sin(i),0,7);x2.fill()}x2.filter="none"}
+  if(AT==="dust"){L2();x2.fillStyle="rgba(255,245,220,.9)";for(let i=0;i<70;i++){x2.beginPath();x2.arc((i*113+Math.sin(t*.5+i)*20)%800,(i*61+t*6)%450,1.3,0,7);x2.fill()}}
+  if(AT==="rain"){L2();x2.strokeStyle="rgba(200,215,255,.55)";x2.lineWidth=1.2;x2.beginPath();for(let i=0;i<140;i++){const x=(i*57)%820,y=((i*131)+t*900)%470-20;x2.moveTo(x,y);x2.lineTo(x-6,y+22)}x2.stroke()}
+  if(AT==="snow"){L2();x2.fillStyle="rgba(255,255,255,.9)";for(let i=0;i<110;i++){x2.beginPath();x2.arc(((i*71)+Math.sin(t+i)*15)%800,((i*97)+t*40)%460,1.5+(i%3),0,7);x2.fill()}}
+  if(AT==="embers"){L2();x2.fillStyle="#ffb347";for(let i=0;i<50;i++){x2.beginPath();x2.arc((i*89+Math.sin(t+i)*20)%800,450-((i*67+t*50)%470),1.8,0,7);x2.fill()}}
+  if(AT==="water"){fillC("#2a6fa8","multiply",.6);L2();x2.globalCompositeOperation="screen";x2.strokeStyle="rgba(170,230,255,.35)";x2.lineWidth=3;for(let i=0;i<14;i++){x2.beginPath();for(let x=0;x<=800;x+=20)x2.lineTo(x,i*34+Math.sin(x/40+t*2+i)*10);x2.stroke()}x2.globalCompositeOperation="source-over"}
+  if(AT==="flare"){const sx=560,sy=170;glow(sx,sy,120,"#fff1c0",.8);[[.3,30,"#7fd0ff"],[.55,18,"#ff9cd6"],[.8,40,"#b8ff9c"]].forEach(([k,r,c])=>glow(sx+(400-sx)*2*k,sy+(225-sy)*2*k,r,c,.5));L2();x2.globalCompositeOperation="screen";x2.fillStyle="rgba(255,230,180,.4)";x2.fillRect(0,sy-2,800,4);x2.globalCompositeOperation="source-over"}
+  if(AT==="bloom")bloom(.6,7);
+  // mood grade
+  const M={dramatic:["contrast(1.35) saturate(1.1)"],moody:["saturate(.7) brightness(.85)","#3a4a6a",.25],mysterious:["brightness(.85)","#24305a",.3],romantic:["saturate(1.1)","#ff9ab8",.15,1],eerie:["saturate(.6)","#5a7a4a",.3],ominous:["contrast(1.2) brightness(.8)","#5a1a1a",.3],serene:["brightness(1.08) saturate(.9)","#cfe6ff",.12,1],hopeful:["brightness(1.1)","#ffd59a",.15,1],melancholic:["saturate(.55)","#4a6a9a",.25],tense:["contrast(1.3) saturate(.8)","#4a6a5a",.2],dreamy:["brightness(1.1) saturate(.85)","#f0d8ff",.18,1],nostalgic:["sepia(.35) saturate(.9)"],epic:["contrast(1.25) saturate(1.15)"],gritty:["contrast(1.3) saturate(.5)"],whimsical:["saturate(1.4) brightness(1.06)"],ethereal:["brightness(1.15) saturate(.8)","#ffffff",.15,1],cozy:["saturate(1.05)","#ffb060",.2],lonely:["saturate(.5) brightness(.85)","#3a4a6a",.2],euphoric:["saturate(1.6)","#ff4fd8",.12,1],menacing:["contrast(1.3) brightness(.75)","#6a0a0a",.35]}[st.mood];
+  if(M){refilter(M[0]);if(M[1])fillC(M[1],M[3]?"screen":"multiply",M[2]);if(st.mood==="dreamy"||st.mood==="ethereal")bloom(.35,6);if(st.mood==="gritty")grain(.2);if(st.mood==="lonely"||st.mood==="ominous")vign(.6)}
+}
+
+/* --- Style renderer --- */
+function styleFX(st,t){
+  const M=st.md;
+  const era={1920:()=>{refilter("grayscale(1) sepia(.3)");scratches(3)},1950:()=>refilter("saturate(1.4) sepia(.15)"),1970:()=>{refilter("sepia(.3) saturate(1.1)");fillC("#ffb070","multiply",.15)},1980:()=>{fillC("#ff4fd8","screen",.06);fillC("#2e5cff","screen",.05)},1990:()=>refilter("saturate(.9) contrast(1.05)"),y2k:()=>{refilter("saturate(1.2) brightness(1.08)");fillC("#a8d8ff","screen",.08)},future:()=>{fillC("#5ff1ff","screen",.07);bloom(.25,5)}}[st.era];
+  const md={
+   photo:()=>refilter("contrast(1.05) saturate(1.05)"),
+   cine:()=>{refilter("contrast(1.1)");fillC("#1f6f78","multiply",.15);bars();grain(.06)},
+   f35:()=>{refilter("contrast(1.05) saturate(.95) sepia(.1)");grain(.14)},
+   f16:()=>{refilter("blur(.6px) contrast(1.1) saturate(.85) sepia(.15)");grain(.25);jitter(1.5)},
+   s8:()=>{refilter("blur(.8px) saturate(1.2) sepia(.35)");grain(.3);jitter(2.5);vign(.75,.2);leak()},
+   vhs:()=>{refilter("blur(.7px) saturate(1.3)");caberr(3);scan(.2);const y=(t*60)%H2;R2();x2.fillStyle="rgba(255,255,255,.15)";x2.fillRect(0,y,W2,6);textHud("PLAY ▶  SP");grain(.12)},
+   bw:()=>refilter("grayscale(1) contrast(1.15)"),
+   noir:()=>{refilter("grayscale(1) contrast(1.6) brightness(.9)");vign(.7);grain(.15)},
+   silent:()=>{refilter(`grayscale(1) sepia(.2) contrast(1.2) brightness(${.9+Math.random()*.2})`);scratches(4);jitter(3);vign(.7)},
+   sepia:()=>{refilter("sepia(1) contrast(1.05)");vign(.5);grain(.12)},
+   polaroid:()=>{refilter("saturate(.8) contrast(.9) brightness(1.08) sepia(.2)");fillC("#ffe9c8","multiply",.25);frameBorder("#f6f3ec",12,40)},
+   techni:()=>refilter("saturate(1.9) contrast(1.1)"),
+   doc:()=>refilter("saturate(.95)"),
+   found:()=>{refilter("saturate(.8) blur(.5px)");jitter(5);grain(.2);textHud("● REC  00:13:42","#ff4d4d")},
+   security:()=>{refilter("grayscale(1) contrast(1.2)");pix(2);scan(.15,2);vign(.6);textHud("CAM 04  2026-10-27 23:14:08")},
+   night:()=>{duo([0,10,0],[170,255,140]);grain(.3);vign(.85,.25)},
+   thermal:()=>pxop((r,g,b)=>{const k=1-lum(r,g,b)/255;return k<.33?[0,0,k*3*255]:k<.66?[(k-.33)*3*255,0,255-(k-.33)*3*255]:[255,(k-.66)*3*255,0]}),
+   ir:()=>pxop((r,g,b)=>[Math.min(255,g*1.3+r*.2),b*.9+g*.3,Math.min(255,b+g*.6)]),
+   anime:()=>{post(5);refilter("saturate(1.4)");drawEdges(edges(0,110),[30,25,40],.9)},
+   cartoon3d:()=>{refilter("blur(1.4px) saturate(1.3) brightness(1.05)");bloom(.25,6)},
+   clay:()=>{refilter("blur(1.5px) saturate(1.25)");post(8);jitter(2.5)},
+   hand2d:()=>{post(4);refilter("saturate(1.3)");drawEdges(edges(0,90),[25,20,30],1);paper(.15)},
+   roto:()=>{post(4);drawEdges(edges(0,80),[0,0,0],1);refilter("saturate(.9)")},
+   comic:()=>{post(4);refilter("saturate(1.5)");const E=edges(0,90);halftone(5);drawEdges(E,[0,0,0],1)},
+   manga:()=>{refilter("grayscale(1) contrast(1.4)");const E=edges(0,80);halftone(4,"#111","#fff");drawEdges(E,[0,0,0],1)},
+   pop:()=>{post(3);refilter("saturate(2.2) hue-rotate(20deg)");halftone(6)},
+   water:()=>{refilter("blur(2px) saturate(1.1)");post(7);drawEdges(edges(0,70),[90,70,90],.25);paper(.3,"#fff8ec")},
+   oil:()=>{refilter("blur(1px) saturate(1.3) contrast(1.1)");dabs(1800,8);paper(.15)},
+   impress:()=>{refilter("saturate(1.4) brightness(1.05)");dabs(2600,10)},
+   sketch:()=>{const E=edges(0,55);fillC("#f7f3ea");drawEdges(E,[40,40,48],.9);paper(.25)},
+   charcoal:()=>{refilter("grayscale(1) contrast(1.6) blur(1.2px)");const E=edges(0,50);drawEdges(E,[10,10,10],1);paper(.4,"#e9e4d8")},
+   ukiyo:()=>{post(5);refilter("saturate(.75) sepia(.25)");drawEdges(edges(0,90),[30,30,50],1);paper(.25,"#f3e6c8")},
+   linocut:()=>{pxop((r,g,b)=>lum(r,g,b)>110?[240,232,214]:[25,22,28]);paper(.3)},
+   riso:()=>{duo([30,40,160],[255,120,170]);x3.clearRect(0,0,W2,H2);x3.drawImage(cv2,0,0);R2();x2.globalCompositeOperation="multiply";x2.globalAlpha=.4;x2.drawImage(t3,3,2);x2.globalAlpha=1;x2.globalCompositeOperation="source-over";grain(.25)},
+   pixel:()=>{pix(8);post(6)},
+   lowpoly:()=>lowpoly(26),
+   voxel:()=>{pix(12);post(7);gridLines("rgba(0,0,0,.6)",12,.7)},
+   paper:()=>{post(4);x3.clearRect(0,0,W2,H2);x3.drawImage(cv2,0,0);R2();x2.fillStyle="#2a2030";x2.globalAlpha=.4;x2.drawImage(t3,3,3);x2.globalAlpha=1;x2.drawImage(t3,0,0);paper(.3)},
+   stained:()=>{pix(16);refilter("saturate(1.8) brightness(1.1)");gridLines("#141018",16,1)},
+   mosaic:()=>{pix(8);gridLines("#e8e2d6",8,.9)},
+   ascii:()=>ascii(),
+   glitch:()=>glitch(),
+   synth:()=>{refilter("brightness(.7)");duo([30,0,60],[255,120,220]);synthGrid();bloom(.4,5)},
+   vapor:()=>{duo([90,200,220],[255,160,220]);scan(.12);gridLines("rgba(255,255,255,.4)",30,.5)},
+   cyber:()=>{refilter("contrast(1.25)");fillC("#00e5ff","multiply",.25);fillC("#ff2bd6","screen",.12);bloom(.35,5);scan(.08)},
+   steam:()=>{refilter("sepia(.7) contrast(1.2)");fillC("#b07a30","multiply",.2);vign(.7);grain(.12)},
+   deco:()=>{duo([20,18,24],[230,190,100]);R2();x2.strokeStyle="#e6be64";x2.lineWidth=2;x2.strokeRect(8,8,W2-16,H2-16);x2.strokeRect(14,14,W2-28,H2-28)},
+   nouveau:()=>{post(6);refilter("saturate(.8) sepia(.3)");drawEdges(edges(0,90),[70,50,40],1);R2();x2.strokeStyle="#7a5a3a";x2.lineWidth=6;x2.beginPath();x2.roundRect(10,10,W2-20,H2-20,40);x2.stroke();paper(.2,"#f2e6cc")},
+   bauhaus:()=>{pxop((r,g,b)=>{const L=lum(r,g,b);return L>190?[240,232,214]:L>130?[230,180,30]:L>80?[200,40,40]:[25,40,90]})},
+   surreal:()=>{refilter("hue-rotate(35deg) saturate(1.3)");bloom(.3,8)},
+   blueprint:()=>{const E=edges(0,60);drawEdges(E,[230,240,255],1,[20,60,140]);gridLines("rgba(255,255,255,.25)",20,.6)},
+   neonline:()=>{const E=edges(0,70);drawEdges(E,[255,80,220],1,[8,4,18]);bloom(.8,4)},
+   chalk:()=>{const E=edges(0,60);drawEdges(E,[235,235,225],.9,[30,52,40]);grain(.2)},
+   graffiti:()=>{post(4);refilter("saturate(2)");drawEdges(edges(0,90),[0,0,0],1);R2();for(let i=0;i<300;i++){x2.fillStyle=`hsla(${i*37%360},90%,60%,.35)`;x2.beginPath();x2.arc((i*53)%W2,(i*97)%H2,1.5,0,7);x2.fill()}},
+   double:()=>{x3.clearRect(0,0,W2,H2);x3.drawImage(cv2,0,0);R2();x2.globalCompositeOperation="screen";x2.globalAlpha=.55;x2.drawImage(t3,W2*.1,H2*.05,W2*.4,H2*.5,0,0,W2,H2);x2.globalAlpha=1;x2.globalCompositeOperation="source-over"},
+   kaleido:()=>mirror4(),
+   mini:()=>{refilter("saturate(1.5) contrast(1.1)");x3.clearRect(0,0,W2,H2);x3.filter="blur(4px)";x3.drawImage(cv2,0,0);x3.filter="none";R2();x2.drawImage(t3,0,0,W2,H2*.35,0,0,W2,H2*.35);x2.drawImage(t3,0,H2*.72,W2,H2*.28,0,H2*.72,W2,H2*.28)}
+  }[M];
+  if(md)md();
+  if(era)era();
+  const gr={teal:()=>{fillC("#2a8a92","multiply",.25);fillC("#ff9a4a","screen",.08)},bleach:()=>refilter("saturate(.35) contrast(1.4)"),desat:()=>refilter("saturate(.45)"),vibrant:()=>refilter("saturate(1.6)"),pastel:()=>{refilter("saturate(.7) brightness(1.15) contrast(.85)");fillC("#ffd6f0","screen",.12)},mono:()=>refilter("grayscale(1)"),duo:()=>duo([40,20,110],[255,190,90]),warm:()=>fillC("#ffb070","multiply",.25),cool:()=>fillC("#7aa8ff","multiply",.25),cross:()=>{refilter("contrast(1.2) saturate(1.3) hue-rotate(-15deg)");fillC("#d8ff6a","multiply",.2)},faded:()=>{refilter("contrast(.8) saturate(.8)");fillC("#3a3040","screen",.15)},hicon:()=>refilter("contrast(1.55)")}[st.gr];
+  if(gr)gr();
+  const tx={grain:()=>grain(.15),heavy:()=>grain(.35),scan:()=>scan(.22),leak:()=>leak(),scratch:()=>scratches(5),ca:()=>caberr(3),bloom:()=>bloom(.5,6),vig:()=>vign(.7),letter:()=>bars(),halftone:()=>halftone(5),paper:()=>paper(.35,"#f5ecd9")}[st.tx];
+  if(tx)tx();
+  const dt={hd:()=>refilter("contrast(1.08) saturate(1.05)"),ultra:()=>refilter("contrast(1.12) saturate(1.1)"),hyper:()=>refilter("contrast(1.15) saturate(1.15)"),painterly:()=>dabs(900,6),minimal:()=>post(4)}[st.dt];
+  if(dt)dt();
+}
+
+/* --- Builder specs --- */
+const SPECS={
+ lighting:{title:"Lighting & mood builder",hint:"Stack a lighting pattern, time of day, color, practical sources, accents, shadow patterns, atmosphere and mood. The demo relights live.",rows:LROWS,shots:LSHOTS,render:lightFX,over:s=>({sil:s.setup==="silhouette"?1:0,limbo:s.tod==="studio"?1:0}),q:"film lighting"},
+ style:{title:"Style builder",hint:"Pick a medium, then layer an era, color grade, texture and detail level. The demo restyles live.",rows:SROWS,shots:SSHOTS,render:styleFX,over:()=>({}),q:"art style"}
+};
+function xDefaults(){const s={};XB.rows.forEach(r=>s[r.k]=r.range?(r.k==="key"?2:0):r.items[0][0]);return s}
+function xPhrase(){
+  const parts=[];XB.rows.forEach(r=>{let p="";
+    if(r.range)p=r.range[xst.key??0][1];else p=(r.items.find(i=>i[0]===xst[r.k])||[])[2]||"";
+    if(r.k==="side"){const S=xst.setup;p=["none","flat","butterfly","top","under","back","silhouette","cameo","cross"].includes(S)?"":p}
+    if(r.k==="q"&&xst.setup==="none")p="";
+    if(r.k==="side"&&p&&parts.length){parts[parts.length-1]+=" "+p;return}
+    if(p)parts.push(p)});
+  const s=parts.join(", ");return s?s[0].toUpperCase()+s.slice(1):"";
+}
+function xRefresh(){
+  const box=el("xb-rows");box.innerHTML="";
+  XB.rows.forEach(r=>{const g=document.createElement("div");g.className="group";const l=document.createElement("label");l.className="label";g.append(l);
+    if(r.range){l.textContent=r.l+" · "+r.range[xst[r.k]][0];const i=document.createElement("input");i.type="range";i.min=0;i.max=r.range.length-1;i.value=xst[r.k];i.id="xr-"+r.k;l.htmlFor=i.id;i.oninput=()=>{xst[r.k]=+i.value;xName="";xRefresh()};g.append(i)}
+    else{l.textContent=r.l;const row=document.createElement("div");row.className="moves";r.items.forEach(([k,lab])=>{const b=document.createElement("button");b.className="move"+(xst[r.k]===k?" on":"");b.textContent=lab;b.onclick=()=>{xst[r.k]=k;xName="";xRefresh()};row.append(b)});g.append(row)}
+    box.append(g)});
+  const ph=xPhrase();
+  el("xb-name").textContent=xName||"Custom look";
+  el("xb-desc").textContent=xName?xDesc:"Your own combination. Adjust any row below.";
+  el("xb-phrase").textContent=ph||"(nothing selected yet)";
+  el("xb-real").href="https://www.youtube.com/results?search_query="+encodeURIComponent((xName||ph.split(",")[0]||XB.q)+" "+XB.q+" example");
+}
+function xApply(s){xst=Object.assign(xDefaults(),s[3]);xName=s[0];xDesc=s[2];xRefresh();el("xb-demo").scrollIntoView({behavior:"smooth",block:"nearest"})}
+function xBtn(s){const b=document.createElement("button");b.className="move";b.textContent=s[0];b.title=s[2];b.onclick=()=>xApply(s);return b}
+function xFrame(now){const t=now/1000;if(XB.own){R2();x2.filter="none";x2.globalAlpha=1;x2.globalCompositeOperation="source-over";x2.clearRect(0,0,W2,H2)}else renderBase(XB.over(xst));XB.render(xst,t);R2();xraf=requestAnimationFrame(xFrame)}
+function openXB(kind){
+  XB=SPECS[kind];xst=xDefaults();xName="";
+  el("xb-title").textContent=XB.title;el("xb-hint").textContent=XB.hint;el("xb-back").textContent="‹ Back to "+({style:"Style",lighting:"Lighting / Mood",setting:"Setting",action:"Action"})[kind];
+  el("xb-count").textContent=XB.shots.length+" looks";el("xb-search").value="";el("xb-results").innerHTML="";
+  el("xb-search").placeholder=({style:"e.g. noir, VHS, ukiyo-e, synthwave",lighting:"e.g. Rembrandt, golden hour, neon, god rays",setting:"e.g. alley, desert, diner, aurora",action:"e.g. sprint, sword, hug, backflip"})[kind];
+  const all=el("xb-all");all.innerHTML="";[...new Set(XB.shots.map(s=>s[1]))].forEach(g=>{const w=document.createElement("div");w.className="group";const l=document.createElement("div");l.className="label";const list=XB.shots.filter(s=>s[1]===g);l.textContent=g+" · "+list.length;const r=document.createElement("div");r.className="moves";list.forEach(s=>r.append(xBtn(s)));w.append(l,r);all.append(w)});
+  document.getElementById("sheet").hidden=true;el("xb").hidden=false;xRefresh();cancelAnimationFrame(xraf);xraf=requestAnimationFrame(xFrame);
+}
+function closeXB(){cancelAnimationFrame(xraf);el("xb").hidden=true;document.getElementById("sheet").hidden=false}
+el("xb-search").oninput=e=>{const q=e.target.value.trim().toLowerCase(),r=el("xb-results");r.innerHTML="";if(!q)return;XB.shots.filter(s=>(s[0]+" "+s[2]).toLowerCase().includes(q)).slice(0,24).forEach(s=>r.append(xBtn(s)))};
+el("xb-back").onclick=closeXB;
+el("xb-reset").onclick=()=>{xst=xDefaults();xName="";xRefresh()};
+el("xb-use").onclick=()=>{const p=xPhrase();if(p)document.getElementById("sh-input").value=p;closeXB()};
+
+/* ================= Setting & Action builders ================= */
+const hash=i=>{const x=Math.sin(i*127.1)*43758.5453;return x-Math.floor(x)};
+function L2fill(c){L2();x2.fillStyle=c}
+/* --- Setting shapes (logical 800x450) --- */
+const SH={
+ trees:(c)=>{for(let i=0;i<14;i++){const x=i*62-20+hash(i)*20,h=90+hash(i+3)*60;x2.fillStyle="#5a3e2b";x2.fillRect(x+16,330-30,8,30);x2.fillStyle=c.leaf;x2.beginPath();x2.arc(x+20,330-h*.6,34+hash(i)*14,0,7);x2.fill()}},
+ pines:(c)=>{for(let i=0;i<18;i++){const x=i*48-10,h=110+hash(i)*70;x2.fillStyle=c.leaf;x2.beginPath();x2.moveTo(x,335);x2.lineTo(x+22,335-h);x2.lineTo(x+44,335);x2.fill();if(c.snowcap){x2.fillStyle="#fff";x2.beginPath();x2.moveTo(x+14,335-h*.65);x2.lineTo(x+22,335-h);x2.lineTo(x+30,335-h*.65);x2.fill()}}},
+ palms:(c)=>{[90,250,610,720].forEach((x,i)=>{x2.strokeStyle="#7a5a3a";x2.lineWidth=8;x2.beginPath();x2.moveTo(x,340);x2.quadraticCurveTo(x+20,260,x+10,190);x2.stroke();x2.fillStyle=c.leaf;for(let a=0;a<6;a++){x2.beginPath();x2.ellipse(x+10+Math.cos(a)*30,190+Math.sin(a)*10,40,8,a,0,7);x2.fill()}})},
+ jungle:(c)=>{SH.trees(c);x2.strokeStyle="#2c6a2c";x2.lineWidth=3;for(let i=0;i<20;i++){x2.beginPath();x2.moveTo(i*42,0);x2.quadraticCurveTo(i*42+15,80,i*42,120+hash(i)*80);x2.stroke()}},
+ dunes:(c)=>{x2.fillStyle=c.far;for(let i=0;i<4;i++){x2.beginPath();x2.ellipse(i*260,350,260,60+hash(i)*30,0,PI,0);x2.fill()}},
+ peaks:(c)=>{x2.fillStyle=c.far;x2.beginPath();x2.moveTo(0,340);[[80,170],[200,260],[320,120],[460,240],[580,150],[720,250],[800,190]].forEach(p=>x2.lineTo(...p));x2.lineTo(800,340);x2.fill();if(c.snowcap){x2.fillStyle="#f4f8ff";[[320,120],[580,150],[80,170]].forEach(([x,y])=>{x2.beginPath();x2.moveTo(x-28,y+40);x2.lineTo(x,y);x2.lineTo(x+28,y+40);x2.fill()})}},
+ hills:(c)=>{x2.fillStyle=c.far;for(let i=0;i<5;i++){x2.beginPath();x2.ellipse(i*200,345,180,70,0,PI,0);x2.fill()}},
+ waves:(c,t)=>{x2.fillStyle=c.far;x2.fillRect(0,300,800,60);x2.strokeStyle="rgba(255,255,255,.6)";x2.lineWidth=2;for(let j=0;j<4;j++){x2.beginPath();for(let x=0;x<=800;x+=10)x2.lineTo(x,305+j*12+Math.sin(x/30+t*2+j)*3);x2.stroke()}},
+ rocks:(c)=>{x2.fillStyle=c.far;for(let i=0;i<7;i++){x2.beginPath();x2.ellipse(i*130+20,340,50+hash(i)*30,30+hash(i+1)*50,0,PI,0);x2.fill()}},
+ mesas:(c)=>{x2.fillStyle=c.far;[[40,200,200],[330,230,150],[560,180,220]].forEach(([x,y,w])=>{x2.fillRect(x,y,w,140);x2.beginPath();x2.moveTo(x-20,340);x2.lineTo(x,y+30);x2.lineTo(x,340);x2.fill()})},
+ skyline:(c,t)=>{for(let i=0;i<16;i++){const w=40+hash(i)*30,h=120+hash(i+5)*170,x=i*52;x2.fillStyle=c.far;x2.fillRect(x,335-h,w,h);x2.fillStyle=c.win||"#ffd98a";for(let y=335-h+10;y<330;y+=16)for(let k=6;k<w-6;k+=12)if(hash(i*99+y+k)>.55)x2.fillRect(x+k,y,5,7)}},
+ street:(c)=>{SH.skyline(c);x2.fillStyle="#3a3a42";x2.fillRect(0,335,800,120);x2.fillStyle="#e8d36a";for(let x=0;x<800;x+=80)x2.fillRect(x,395,40,5);x2.fillStyle="#2a2a30";x2.fillRect(560,170,6,170);x2.fillStyle="#ffcf7a";x2.fillRect(548,166,30,8)},
+ alley:(c)=>{x2.fillStyle=c.far;x2.beginPath();x2.moveTo(0,0);x2.lineTo(300,120);x2.lineTo(300,340);x2.lineTo(0,450);x2.fill();x2.beginPath();x2.moveTo(800,0);x2.lineTo(500,120);x2.lineTo(500,340);x2.lineTo(800,450);x2.fill();x2.fillStyle="#3b3540";x2.fillRect(300,120,200,220);x2.fillStyle="#555";x2.fillRect(60,330,60,50);x2.fillStyle="#ff3cc7";x2.fillRect(120,160,60,14)},
+ rooftop:(c)=>{SH.skyline({...c,far:"#2a2f45"});x2.fillStyle="#4a4550";x2.fillRect(0,340,800,120);x2.fillStyle="#3a3540";x2.fillRect(580,280,90,60);x2.fillRect(120,300,40,40)},
+ town:(c)=>{for(let i=0;i<9;i++){const x=i*92,w=70,h=60+hash(i)*30;x2.fillStyle=["#c9a27a","#b5795a","#e0cfa8","#9fb2c8"][i%4];x2.fillRect(x,335-h,w,h);x2.fillStyle="#7a3a2a";x2.beginPath();x2.moveTo(x-6,335-h);x2.lineTo(x+w/2,335-h-36);x2.lineTo(x+w+6,335-h);x2.fill();x2.fillStyle="#ffe7a8";x2.fillRect(x+12,335-h+18,12,14);x2.fillRect(x+44,335-h+18,12,14)}},
+ farm:(c)=>{SH.hills({far:"#7aa65a"});x2.fillStyle="#a8322a";x2.fillRect(520,230,110,105);x2.beginPath();x2.moveTo(510,232);x2.lineTo(575,180);x2.lineTo(640,232);x2.fill();x2.fillStyle="#d8c070";for(let i=0;i<10;i++)x2.fillRect(i*50,350,30,3)},
+ castle:(c)=>{x2.fillStyle=c.far;x2.fillRect(250,180,300,160);[230,360,500].forEach(x=>{x2.fillRect(x,120,70,220);for(let k=0;k<4;k++)x2.fillRect(x+k*20,108,12,14)});x2.fillStyle="#1a1520";x2.beginPath();x2.arc(400,300,30,PI,0);x2.fillRect(370,300,60,40);x2.fill()},
+ columns:(c)=>{x2.fillStyle=c.far;for(let i=0;i<7;i++){const x=60+i*110;x2.fillRect(x,150+(i%3===1?40:0),34,190-(i%3===1?40:0));x2.fillRect(x-8,145,50,12)}x2.fillRect(40,130,720,18)},
+ cave:(c)=>{x2.fillStyle="#1a1418";x2.beginPath();x2.rect(0,0,800,450);x2.ellipse(400,330,330,250,0,PI,0);x2.fill("evenodd");x2.fillStyle="#2a2228";for(let i=0;i<12;i++){x2.beginPath();x2.moveTo(80+i*60,60+hash(i)*40);x2.lineTo(92+i*60,140+hash(i)*60);x2.lineTo(104+i*60,60+hash(i)*40);x2.fill()}},
+ swamp:(c)=>{SH.trees({leaf:"#3a5a3a"});x2.fillStyle="#4a5a3a";x2.fillRect(0,345,800,110);x2.strokeStyle="#6a7a4a";for(let i=0;i<30;i++){x2.beginPath();x2.moveTo(i*28,360);x2.lineTo(i*28+3,330);x2.stroke()}},
+ volcano:(c,t)=>{x2.fillStyle="#2a2026";x2.beginPath();x2.moveTo(150,340);x2.lineTo(360,130);x2.lineTo(440,130);x2.lineTo(650,340);x2.fill();x2.fillStyle="#ff6a1a";x2.beginPath();x2.moveTo(380,132);x2.lineTo(420,132);x2.lineTo(440+Math.sin(t)*6,250);x2.lineTo(400,240);x2.fill();x2.fillStyle="rgba(80,70,70,.6)";for(let i=0;i<5;i++){x2.beginPath();x2.arc(400+Math.sin(t+i)*30,110-i*25-(t*10%25),26+i*6,0,7);x2.fill()}},
+ ice:(c)=>{x2.fillStyle="#d6ecff";x2.fillRect(0,330,800,130);x2.fillStyle="#bcdcf8";for(let i=0;i<6;i++){x2.beginPath();x2.moveTo(i*140,335);x2.lineTo(i*140+40,250+hash(i)*40);x2.lineTo(i*140+90,335);x2.fill()}},
+ coral:(c,t)=>{x2.fillStyle="#1e5a7a";x2.fillRect(0,340,800,110);const cs=["#ff6a8a","#ffb04a","#b56bff","#4ae0c0"];for(let i=0;i<14;i++){x2.strokeStyle=cs[i%4];x2.lineWidth=6;x2.beginPath();x2.moveTo(i*58,345);x2.quadraticCurveTo(i*58+Math.sin(t+i)*10,300,i*58+10,270+hash(i)*30);x2.stroke()}x2.fillStyle="rgba(200,240,255,.6)";for(let i=0;i<20;i++){x2.beginPath();x2.arc((i*41)%800,(450-((i*37+t*40)%450)),3,0,7);x2.fill()}},
+ clouds:(c,t)=>{x2.fillStyle="rgba(255,255,255,.9)";for(let i=0;i<9;i++){const x=((i*120+t*10)%1000)-100,y=300+hash(i)*120;x2.beginPath();x2.ellipse(x,y,90,30,0,0,7);x2.ellipse(x+50,y-15,60,26,0,0,7);x2.fill()}},
+ planet:(c)=>{x2.fillStyle=c.far;x2.beginPath();x2.ellipse(400,520,700,220,0,0,7);x2.fill();x2.fillStyle="#d9a46a";x2.beginPath();x2.arc(620,110,60,0,7);x2.fill();x2.strokeStyle="rgba(240,210,160,.7)";x2.lineWidth=5;x2.beginPath();x2.ellipse(620,110,100,18,-.3,0,7);x2.stroke()},
+ alien:(c)=>{SH.rocks({far:"#6a2a6a"});x2.fillStyle="#ffcf5a";x2.beginPath();x2.arc(200,110,34,0,7);x2.arc(300,80,22,0,7);x2.fill();x2.fillStyle="#4af0c8";for(let i=0;i<10;i++){x2.beginPath();x2.moveTo(i*80+20,340);x2.lineTo(i*80+30,290-hash(i)*40);x2.lineTo(i*80+40,340);x2.fill()}},
+ battlefield:(c,t)=>{x2.fillStyle="#3a3228";for(let i=0;i<8;i++){x2.beginPath();x2.ellipse(i*110,345,40,12,0,0,7);x2.fill()}x2.fillStyle="rgba(90,80,70,.55)";for(let i=0;i<6;i++){x2.beginPath();x2.arc((i*150+t*8)%900,220-i*10,50,0,7);x2.fill()}x2.strokeStyle="#4a3a2a";x2.lineWidth=4;x2.beginPath();x2.moveTo(120,340);x2.lineTo(160,260);x2.moveTo(650,340);x2.lineTo(610,280);x2.stroke()},
+ stadium:(c)=>{x2.fillStyle="#3a3a4a";x2.beginPath();x2.moveTo(0,120);x2.quadraticCurveTo(400,60,800,120);x2.lineTo(800,320);x2.lineTo(0,320);x2.fill();for(let i=0;i<400;i++){x2.fillStyle=`hsl(${i*47%360},50%,60%)`;x2.fillRect((i*37)%800,130+(i*13)%180,3,3)}x2.fillStyle="#3c8a3c";x2.fillRect(0,320,800,140);[100,700].forEach(x=>{x2.fillStyle="#fff";x2.fillRect(x,40,40,16)})},
+ /* interiors */
+ room:(c)=>{x2.fillStyle=c.wall;x2.fillRect(0,0,800,340);x2.fillStyle=c.floor;x2.fillRect(0,340,800,120);x2.fillStyle="rgba(0,0,0,.15)";x2.fillRect(0,330,800,10)},
+ window:(c)=>{x2.fillStyle="#9fd0ff";x2.fillRect(560,90,150,140);x2.fillStyle=c.wall2||"#5a4a3a";x2.fillRect(632,90,6,140);x2.fillRect(560,158,150,6);x2.strokeStyle=c.wall2||"#5a4a3a";x2.lineWidth=8;x2.strokeRect(560,90,150,140)},
+ shelves:(c)=>{x2.fillStyle="#5a3a24";for(let s=0;s<2;s++){const x0=s?560:40;x2.fillRect(x0,60,200,280);for(let y=80;y<330;y+=50){x2.fillStyle="#3a2414";x2.fillRect(x0+6,y+40,188,6);for(let k=0;k<12;k++){x2.fillStyle=["#a83a3a","#3a6aa8","#3a8a5a","#c8a03a","#7a3a8a"][(k+y)%5];x2.fillRect(x0+10+k*15,y+8,11,32)}x2.fillStyle="#5a3a24"}}},
+ counter:(c)=>{x2.fillStyle=c.counter||"#c9c2b6";x2.fillRect(0,270,800,24);x2.fillStyle=c.counterb||"#7a6a5a";x2.fillRect(0,294,800,60);x2.fillStyle="#d8d8d8";for(let i=0;i<5;i++)x2.fillRect(80+i*150,120,90,6)},
+ bed:(c)=>{x2.fillStyle="#6a4a3a";x2.fillRect(80,260,260,90);x2.fillStyle="#e8e2f2";x2.fillRect(90,250,240,40);x2.fillStyle="#fff";x2.fillRect(96,236,60,22)},
+ desks:(c)=>{for(let i=0;i<3;i++){x2.fillStyle="#9a8a7a";x2.fillRect(60+i*250,290,160,10);x2.fillRect(70+i*250,300,8,50);x2.fillRect(200+i*250,300,8,50);x2.fillStyle="#2a2a33";x2.fillRect(110+i*250,240,60,44);x2.fillStyle="#7ab8ff";x2.fillRect(114+i*250,244,52,34)}},
+ crates:(c)=>{x2.fillStyle="#8a6a3a";[[60,280],[120,280],[90,220],[620,280],[680,280]].forEach(([x,y])=>{x2.fillRect(x,y,60,60);x2.strokeStyle="#5a4220";x2.lineWidth=3;x2.strokeRect(x,y,60,60)});x2.fillStyle="#ffe8a8";for(let i=0;i<4;i++)x2.fillRect(120+i*170,20,60,6)},
+ machines:(c,t)=>{x2.fillStyle="#5a5a62";x2.fillRect(40,180,180,160);x2.fillRect(580,150,180,190);x2.strokeStyle="#7a7a82";x2.lineWidth=10;x2.beginPath();x2.moveTo(0,90);x2.lineTo(800,90);x2.stroke();x2.fillStyle=Math.sin(t*4)>0?"#ff4a2a":"#4a1a1a";x2.beginPath();x2.arc(130,200,8,0,7);x2.fill()},
+ booths:(c)=>{x2.fillStyle="#c83a3a";for(let i=0;i<4;i++){x2.fillRect(30+i*200,270,60,70);x2.fillRect(130+i*200,270,60,70)}x2.fillStyle="#e8e2d6";for(let i=0;i<4;i++)x2.fillRect(85+i*200,290,50,6);x2.fillStyle="#ff4a6a";x2.fillRect(300,60,200,30)},
+ bar:(c)=>{SH.counter({counter:"#5a3a24",counterb:"#3a2414"});x2.fillStyle="#3a2a20";x2.fillRect(0,80,800,150);for(let i=0;i<30;i++){x2.fillStyle=["#3a8a5a","#a87a3a","#a83a3a","#d8d8d8"][i%4];x2.fillRect(20+i*26,110+((i%2)*50),12,40)}},
+ club:(c,t)=>{x2.fillStyle="#0e0a18";x2.fillRect(0,0,800,450);for(let i=0;i<5;i++){x2.fillStyle=`hsla(${(i*70+t*60)%360},90%,60%,.35)`;x2.beginPath();x2.moveTo(80+i*160,0);x2.lineTo(40+i*160+Math.sin(t+i)*120,450);x2.lineTo(140+i*160+Math.sin(t+i)*120,450);x2.fill()}x2.fillStyle="#1a1428";for(let i=0;i<14;i++){x2.beginPath();x2.arc(30+i*58,330+(i%2)*12+Math.abs(Math.sin(t*6+i))*-8,18,0,7);x2.fill()}},
+ classroom:(c)=>{x2.fillStyle="#2a4a3a";x2.fillRect(200,90,400,150);x2.strokeStyle="#7a5a3a";x2.lineWidth=8;x2.strokeRect(200,90,400,150);x2.strokeStyle="rgba(255,255,255,.7)";x2.lineWidth=2;x2.beginPath();x2.moveTo(230,130);x2.lineTo(380,130);x2.moveTo(230,160);x2.lineTo(330,160);x2.stroke();SH.desks(c)},
+ hospital:(c)=>{x2.fillStyle="#cfe8e8";x2.fillRect(0,0,800,340);x2.fillStyle="#e8f4f4";x2.fillRect(0,0,800,30);x2.fillStyle="#ffffff";x2.fillRect(80,250,240,40);x2.fillStyle="#9ab";x2.fillRect(80,290,240,10);x2.fillStyle="#2a3a4a";x2.fillRect(600,160,90,70);x2.strokeStyle="#4aff7a";x2.lineWidth=2;x2.beginPath();for(let x=0;x<80;x+=4)x2.lineTo(605+x,195+(x%20===8?-20:0));x2.stroke()},
+ lab:(c,t)=>{SH.counter({counter:"#e8e8f0",counterb:"#9aa0b0"});const cs=["#4af0c8","#ff6ad8","#7ab8ff","#d8ff4a"];for(let i=0;i<8;i++){x2.fillStyle=cs[i%4];x2.fillRect(60+i*90,230-hash(i)*20,16,40);x2.beginPath();x2.arc(68+i*90,270,14,0,7);x2.fill()}},
+ ship:(c,t)=>{x2.fillStyle="#1a2030";x2.fillRect(0,0,800,450);x2.fillStyle="#2a3448";x2.beginPath();x2.moveTo(0,0);x2.lineTo(200,90);x2.lineTo(600,90);x2.lineTo(800,0);x2.fill();x2.beginPath();x2.moveTo(0,450);x2.lineTo(200,340);x2.lineTo(600,340);x2.lineTo(800,450);x2.fill();x2.fillStyle="#05060c";x2.fillRect(220,110,360,180);x2.fillStyle="#fff";for(let i=0;i<40;i++)x2.fillRect(220+(i*53+t*30)%360,110+(i*29)%180,2,2);x2.fillStyle="#4af0ff";for(let i=0;i<10;i++)x2.fillRect(30+i*20,200,10,4)},
+ church:(c)=>{x2.fillStyle="#4a3a36";x2.fillRect(0,0,800,340);x2.fillStyle="#2a2028";[150,400,650].forEach(x=>{x2.beginPath();x2.moveTo(x-50,300);x2.lineTo(x-50,110);x2.quadraticCurveTo(x,40,x+50,110);x2.lineTo(x+50,300);x2.fill()});["#ff3b5c","#3b7bff","#ffd23b"].forEach((col,i)=>{x2.fillStyle=col;x2.fillRect(380+i*14-14,100,12,60)});x2.fillStyle="#5a3a24";for(let i=0;i<4;i++){x2.fillRect(60,330+i*0,280,10);x2.fillRect(460,330,280,10)}},
+ void:(c)=>{x2.fillStyle=c.wall||"#e6e3ec";x2.fillRect(0,0,800,450)}
+};
+const ENVS=[
+ ["none","None","",null],
+ ["forest","Forest","in a dense forest",{sky:1,ground:"#3d6b4a",shapes:["hills","trees"],leaf:"#2f6a3a",far:"#4a7a5a"}],
+ ["pine","Pine forest","in a misty pine forest",{sky:1,ground:"#3a5a44",shapes:["peaks","pines"],leaf:"#1f4a30",far:"#6a7a8a"}],
+ ["jungle","Jungle","in a lush tropical jungle",{sky:1,ground:"#2f5a2a",shapes:["jungle"],leaf:"#2f7a2f"}],
+ ["desert","Desert","in a vast sand desert",{sky:1,ground:"#e0b878",shapes:["dunes"],far:"#d6a868"}],
+ ["canyon","Canyon","in a red rock canyon",{sky:1,ground:"#b8643a",shapes:["mesas"],far:"#a8542a"}],
+ ["beach","Beach","on a tropical beach",{sky:1,ground:"#f0dca0",shapes:["waves","palms"],far:"#2a8ac8",leaf:"#3a8a3a"}],
+ ["ocean","Open ocean","on the open ocean",{sky:1,ground:"#1e5a8a",shapes:["waves"],far:"#2a6aa8"}],
+ ["mountains","Mountains","in rugged mountains",{sky:1,ground:"#5a6a4a",shapes:["peaks"],far:"#6a6a7a"}],
+ ["snowpeak","Snowy peaks","on a snow-capped mountain peak",{sky:1,ground:"#eef4fa",shapes:["peaks","pines"],far:"#8a98b0",snowcap:1,leaf:"#2a4a3a"}],
+ ["meadow","Meadow","in a wildflower meadow",{sky:1,ground:"#6aa84a",shapes:["hills"],far:"#7ab85a",flowers:1}],
+ ["tundra","Arctic tundra","on frozen arctic ice",{sky:1,ground:"#e6f2ff",shapes:["ice"]}],
+ ["cave","Cave","inside a dark cave",{sky:0,bg:"#3a3036",ground:"#2a2226",shapes:["cave"]}],
+ ["swamp","Swamp","in a murky swamp",{sky:1,ground:"#4a5a3a",shapes:["swamp"]}],
+ ["volcano","Volcano","at the base of an erupting volcano",{sky:1,ground:"#2a2226",shapes:["volcano"]}],
+ ["underwater","Underwater reef","underwater on a coral reef",{sky:0,bg:"#1a6a9a",ground:"#1e5a7a",shapes:["coral"]}],
+ ["sky","Above the clouds","high above the clouds",{sky:1,ground:null,shapes:["clouds"]}],
+ ["space","Planet orbit","in outer space above a planet",{sky:0,bg:"#05060f",stars:1,ground:null,shapes:["planet"],far:"#3a6ab0"}],
+ ["alien","Alien world","on an alien planet",{sky:1,skyTint:"#7a3a8a",ground:"#4a2050",shapes:["alien"]}],
+ ["city","City street","on a busy city street",{sky:1,ground:"#3a3a42",shapes:["street"],far:"#4a5068"}],
+ ["skyline","City skyline","overlooking a city skyline",{sky:1,ground:"#2a2a32",shapes:["skyline"],far:"#3a4058"}],
+ ["alley","Back alley","in a narrow back alley",{sky:1,ground:"#2a2830",shapes:["alley"],far:"#3a3440"}],
+ ["rooftop","Rooftop","on a city rooftop",{sky:1,ground:"#4a4550",shapes:["rooftop"]}],
+ ["town","Small town","in a quaint small town",{sky:1,ground:"#8a8a7a",shapes:["town"]}],
+ ["farm","Farm","on a countryside farm",{sky:1,ground:"#8aa85a",shapes:["farm"]}],
+ ["castle","Castle","outside a medieval castle",{sky:1,ground:"#6a7a5a",shapes:["castle"],far:"#7a7a82"}],
+ ["ruins","Ancient ruins","among ancient temple ruins",{sky:1,ground:"#a89a7a",shapes:["columns"],far:"#c8b898"}],
+ ["battlefield","Battlefield","on a smoky battlefield",{sky:1,ground:"#5a4a3a",shapes:["battlefield"]}],
+ ["stadium","Stadium","in a packed stadium",{sky:1,ground:"#3c8a3c",shapes:["stadium"]}],
+ ["library","Library","in an old library",{sky:0,wall:"#6a4a3a",floor:"#4a3020",shapes:["room","shelves"]}],
+ ["kitchen","Kitchen","in a home kitchen",{sky:0,wall:"#e8dcc8",floor:"#b8a88a",shapes:["room","counter","window"]}],
+ ["bedroom","Bedroom","in a cozy bedroom",{sky:0,wall:"#8a9ab8",floor:"#7a5a40",shapes:["room","bed","window"]}],
+ ["office","Office","in a modern office",{sky:0,wall:"#d8dce4",floor:"#7a808a",shapes:["room","desks","window"],wall2:"#9aa0aa"}],
+ ["warehouse","Warehouse","in a dim warehouse",{sky:0,wall:"#5a5a5e",floor:"#4a4a4e",shapes:["room","crates"]}],
+ ["factory","Factory","in an industrial factory",{sky:0,wall:"#4a4a50",floor:"#3a3a40",shapes:["room","machines"]}],
+ ["diner","Retro diner","in a retro diner",{sky:0,wall:"#e8f0f0",floor:"#2a2a2a",checker:1,shapes:["room","booths"]}],
+ ["bar","Bar","in a dim bar",{sky:0,wall:"#3a2a20",floor:"#2a1a12",shapes:["room","bar"]}],
+ ["club","Nightclub","in a crowded nightclub",{sky:0,shapes:["club"]}],
+ ["classroom","Classroom","in a classroom",{sky:0,wall:"#e8e0c8",floor:"#a88a6a",shapes:["room","classroom"]}],
+ ["hospital","Hospital room","in a hospital room",{sky:0,wall:"#cfe8e8",floor:"#a8b8b8",shapes:["room","hospital"]}],
+ ["lab","Laboratory","in a high-tech laboratory",{sky:0,wall:"#dfe4ec",floor:"#9aa0b0",shapes:["room","lab"]}],
+ ["spaceship","Spaceship bridge","on a spaceship bridge",{sky:0,shapes:["ship"]}],
+ ["cathedral","Cathedral","inside a gothic cathedral",{sky:0,wall:"#4a3a36",floor:"#3a2c28",shapes:["room","church"]}],
+ ["studio","Studio void","in an empty white studio",{sky:0,shapes:["void"],wall:"#ecebf0"}],
+ ["blackvoid","Black void","in an infinite black void",{sky:0,shapes:["void"],wall:"#0a0a0e"}]
+];
+const SKIES={day:["#3a7ad8","#a8d4ff"],dawn:["#5a6ab8","#ffb8a0"],golden:["#4a6ab8","#ffc070"],sunset:["#3a2a6a","#ff7a3a"],dusk:["#1a1a4a","#8a5ab0"],night:["#05081a","#1a2a5a"]};
+const SETROWS=[
+ {k:"env",l:"Environment",items:ENVS.map(e=>[e[0],e[1],e[2]])},
+ {k:"time",l:"Time of day",items:[["none","None",""],["day","Day","in daylight"],["dawn","Dawn","at dawn"],["golden","Golden hour","at golden hour"],["sunset","Sunset","at sunset"],["dusk","Dusk","at dusk"],["night","Night","at night"]]},
+ {k:"wx",l:"Weather",items:[["none","None",""],["clear","Clear","under clear skies"],["cloudy","Cloudy","under heavy clouds"],["rain","Rain","in the rain"],["storm","Thunderstorm","during a thunderstorm"],["snow","Snow","in falling snow"],["blizzard","Blizzard","in a blizzard"],["fog","Fog","in thick fog"],["sandstorm","Sandstorm","in a sandstorm"],["heat","Heat haze","in shimmering heat haze"],["wind","Windy","in strong wind"],["aurora","Aurora","under the northern lights"],["rainbow","Rainbow","with a rainbow"]]},
+ {k:"season",l:"Season",items:[["none","None",""],["spring","Spring","in spring with blossoms"],["summer","Summer","in summer"],["autumn","Autumn","in autumn with falling leaves"],["winter","Winter","in winter with snow on the ground"]]},
+ {k:"era",l:"Era",items:[["none","None",""],["prehistoric","Prehistoric","in prehistoric times"],["ancient","Ancient","in the ancient world"],["medieval","Medieval","in medieval times"],["victorian","Victorian","in the Victorian era"],["1920","1920s","in the 1920s"],["1950","1950s","in the 1950s"],["1980","1980s","in the 1980s"],["modern","Present day","in the present day"],["nearfuture","Near future","in the near future"],["scifi","Far future","in a far-future sci-fi world"],["postapoc","Post-apocalyptic","in a post-apocalyptic world"]]},
+ {k:"cond",l:"Condition",items:[["none","None",""],["pristine","Pristine","pristine and immaculate"],["lived","Lived-in","lived-in and cluttered"],["abandoned","Abandoned","abandoned and decaying"],["ruined","Ruined","in ruins with debris"],["overgrown","Overgrown","overgrown with vines"],["flooded","Flooded","partially flooded"],["burning","On fire","engulfed in flames"],["frozen","Frozen","frozen over with ice"]]},
+ {k:"crowd",l:"People",items:[["none","None",""],["empty","Empty","completely empty"],["few","A few people","with a few people around"],["busy","Bustling crowd","bustling with crowds"]]},
+ {k:"scale",l:"Scale",items:[["none","Default",""],["intimate","Intimate","intimate, close quarters"],["vast","Vast / epic","vast, epic scale"]]}
+];
+function drawSetting(st,t){
+  const E=(ENVS.find(e=>e[0]===st.env)||ENVS[1])[3]||ENVS[1][3];
+  L2();x2.globalCompositeOperation="source-over";x2.filter="none";
+  const sk=SKIES[st.time==="none"?"day":st.time];
+  if(E.sky){const g=x2.createLinearGradient(0,0,0,340);g.addColorStop(0,st.wx==="cloudy"||st.wx==="storm"?"#5a6070":sk[0]);g.addColorStop(1,st.wx==="cloudy"||st.wx==="storm"?"#9aa0aa":sk[1]);x2.fillStyle=g;x2.fillRect(0,0,800,450);
+    if(E.skyTint){x2.globalCompositeOperation="multiply";x2.fillStyle=E.skyTint;x2.fillRect(0,0,800,340);x2.globalCompositeOperation="source-over"}
+    if(st.time==="night"||st.time==="dusk"){x2.fillStyle="#fff";for(let i=0;i<80;i++)x2.fillRect(hash(i)*800,hash(i+9)*240,1.5,1.5);x2.fillStyle="#f4f0dc";x2.beginPath();x2.arc(640,80,22,0,7);x2.fill()}
+    else if(st.wx!=="cloudy"&&st.wx!=="storm"){const sy={dawn:300,golden:230,sunset:290}[st.time]??80;x2.fillStyle="#fff2c0";x2.beginPath();x2.arc(600,sy,30,0,7);x2.fill()}
+    if(st.wx==="aurora"){x2.globalCompositeOperation="screen";for(let i=0;i<4;i++){x2.strokeStyle=`rgba(${80+i*30},255,${170-i*20},.35)`;x2.lineWidth=26;x2.beginPath();for(let x=0;x<=800;x+=20)x2.lineTo(x,70+i*22+Math.sin(x/90+t+i)*25);x2.stroke()}x2.globalCompositeOperation="source-over"}
+    if(st.wx==="rainbow"){["#ff4a4a","#ffa04a","#ffe84a","#4aff6a","#4aa0ff","#8a4aff"].forEach((c,i)=>{x2.strokeStyle=c;x2.globalAlpha=.45;x2.lineWidth=8;x2.beginPath();x2.arc(400,400,300-i*8,PI,0);x2.stroke()});x2.globalAlpha=1}
+    if(st.wx==="cloudy"||st.wx==="storm"){x2.fillStyle="rgba(70,75,90,.8)";for(let i=0;i<10;i++){x2.beginPath();x2.ellipse(((i*110+t*12)%1000)-100,60+hash(i)*60,100,34,0,0,7);x2.fill()}}
+  } else {x2.fillStyle=E.bg||E.wall||"#333";x2.fillRect(0,0,800,450);if(E.stars){x2.fillStyle="#fff";for(let i=0;i<160;i++)x2.fillRect(hash(i)*800,hash(i+7)*450,1.5,1.5)}}
+  if(E.ground){x2.fillStyle=st.season==="winter"||st.cond==="frozen"?"#eef4fa":E.ground;x2.fillRect(0,335,800,120)}
+  const leaf=st.season==="autumn"?"#d8782a":st.season==="winter"?"#4a5a5a":st.season==="spring"?"#5aa85a":E.leaf;
+  E.shapes.forEach(s=>SH[s]({...E,leaf},t));
+  if(E.checker){for(let x=0;x<800;x+=40)for(let y=340;y<450;y+=20)if(((x/40)+(y/20))%2<1){x2.fillStyle="#e8e8e8";x2.fillRect(x,y,40,20)}}
+  if(E.flowers||st.season==="spring"){for(let i=0;i<80;i++){x2.fillStyle=["#ffd0e0","#fff","#ffe14a","#ff8ab0"][i%4];x2.beginPath();x2.arc(hash(i)*800,345+hash(i+3)*100,2.5,0,7);x2.fill()}}
+  if(st.season==="spring"&&E.sky){x2.fillStyle="#ffc8dc";for(let i=0;i<30;i++){x2.beginPath();x2.arc((hash(i)*800+t*20)%800,(hash(i+2)*340+t*25)%340,2.5,0,7);x2.fill()}}
+  // era overlays
+  if(st.era==="postapoc"||st.cond==="ruined"){x2.fillStyle="rgba(40,30,25,.8)";for(let i=0;i<12;i++){x2.beginPath();x2.moveTo(i*70,345);x2.lineTo(i*70+20+hash(i)*20,325);x2.lineTo(i*70+45,345);x2.fill()}x2.strokeStyle="rgba(20,15,10,.6)";x2.lineWidth=2;for(let i=0;i<6;i++){x2.beginPath();x2.moveTo(hash(i)*800,hash(i+1)*300);x2.lineTo(hash(i)*800+30,hash(i+1)*300+40);x2.lineTo(hash(i)*800+10,hash(i+1)*300+70);x2.stroke()}}
+  if(st.era==="scifi"||st.era==="nearfuture"){x2.fillStyle="rgba(120,230,255,.8)";for(let i=0;i<5;i++){const x=((i*190+t*80)%1000)-100;x2.fillRect(x,60+i*24,26,5)}}
+  if(st.era==="medieval"||st.era==="ancient"){x2.fillStyle="#7a5a3a";x2.fillRect(80,260,8,80);x2.fillStyle="#ff9a3a";x2.beginPath();x2.ellipse(84,255,6,12,0,0,7);x2.fill()}
+  if(st.era==="prehistoric"){x2.fillStyle="#3a5a3a";x2.beginPath();x2.ellipse(650,300,60,30,0,0,7);x2.fill();x2.fillRect(690,230,14,70);x2.beginPath();x2.ellipse(705,228,18,10,0,0,7);x2.fill()}
+  if(st.cond==="overgrown"){x2.strokeStyle="#2f7a2f";x2.lineWidth=4;for(let i=0;i<16;i++){x2.beginPath();x2.moveTo(i*52,0);for(let y=0;y<200+hash(i)*120;y+=20)x2.lineTo(i*52+Math.sin(y/20+i)*10,y);x2.stroke()}x2.fillStyle="#3a8a3a";for(let i=0;i<60;i++){x2.beginPath();x2.ellipse(hash(i)*800,hash(i+4)*300,6,3,i,0,7);x2.fill()}}
+  if(st.cond==="flooded"){x2.fillStyle="rgba(60,110,150,.75)";x2.fillRect(0,360,800,100);x2.strokeStyle="rgba(255,255,255,.4)";x2.beginPath();for(let x=0;x<=800;x+=10)x2.lineTo(x,362+Math.sin(x/25+t*2)*2);x2.stroke()}
+  // crowd
+  const nCrowd={few:4,busy:18}[st.crowd]||0;
+  for(let i=0;i<nCrowd;i++){const x=(hash(i)*800+t*(i%2?14:-14)*(1+hash(i+1)))%820,s=.45+hash(i+2)*.3;x2.save();x2.translate((x+820)%820,345);x2.scale(s,s);x2.fillStyle=["#3a3a5a","#5a3a3a","#3a5a4a","#5a5a3a"][i%4];x2.fillRect(-14,-110,28,70);x2.beginPath();x2.arc(0,-125,14,0,7);x2.fill();x2.fillRect(-12,-40,10,40);x2.fillRect(2,-40,10,40);x2.restore()}
+  // hero figure
+  const sc=st.scale==="vast"?.5:st.scale==="intimate"?1.9:1.1;L2();x2.fillStyle="rgba(0,0,0,.2)";x2.beginPath();x2.ellipse(400,348,26*sc,6*sc,0,0,7);x2.fill();
+  drawRig({sL:.12+.03*Math.sin(t*2),sR:-.12,hL:.04,hR:-.04},400,348-68*sc,sc,{});
+  // weather
+  if(st.wx==="rain"||st.wx==="storm"){x2.strokeStyle="rgba(200,215,255,.55)";x2.lineWidth=1.2;x2.beginPath();for(let i=0;i<160;i++){const x=(i*57)%820,y=((i*131)+t*900)%470-20;x2.moveTo(x,y);x2.lineTo(x-6,y+22)}x2.stroke()}
+  if(st.wx==="storm"&&t%3<.1){x2.fillStyle="rgba(230,240,255,.7)";x2.fillRect(0,0,800,450)}
+  if(st.wx==="snow"||st.wx==="blizzard"){const n=st.wx==="blizzard"?260:110,dx=st.wx==="blizzard"?300:15;x2.fillStyle="rgba(255,255,255,.9)";for(let i=0;i<n;i++){x2.beginPath();x2.arc(((i*71)+t*dx+Math.sin(t+i)*15)%800,((i*97)+t*60)%460,1.5+(i%3),0,7);x2.fill()}if(st.wx==="blizzard"){x2.fillStyle="rgba(235,240,250,.45)";x2.fillRect(0,0,800,450)}}
+  if(st.wx==="fog"){const g=x2.createLinearGradient(0,100,0,450);g.addColorStop(0,"rgba(220,225,235,.35)");g.addColorStop(1,"rgba(220,225,235,.8)");x2.fillStyle=g;x2.fillRect(0,0,800,450)}
+  if(st.wx==="sandstorm"){x2.fillStyle="rgba(210,160,90,.55)";x2.fillRect(0,0,800,450);x2.strokeStyle="rgba(240,200,140,.6)";x2.beginPath();for(let i=0;i<80;i++){const x=((i*91)+t*600)%900-50,y=(i*53)%450;x2.moveTo(x,y);x2.lineTo(x+40,y+3)}x2.stroke()}
+  if(st.wx==="wind"||st.season==="autumn"){x2.fillStyle=st.season==="autumn"?"#e0782a":"#6aa84a";for(let i=0;i<30;i++){const x=((i*97)+t*(st.wx==="wind"?400:60))%850-25,y=(i*67+Math.sin(t*3+i)*30)%440;x2.beginPath();x2.ellipse(x,y,5,2.5,t*3+i,0,7);x2.fill()}}
+  if(st.wx==="heat"){refilter("saturate(1.1)");x3.clearRect(0,0,W2,H2);x3.drawImage(cv2,0,0);R2();for(let y=0;y<H2;y+=3)x2.drawImage(t3,0,y,W2,3,Math.sin(y/8+t*6)*2,y,W2,3);fillC("#ffd8a0","multiply",.15)}
+  if(st.cond==="burning"){const f=.8+.2*Math.sin(t*9);glow(400,470,500*f,"#ff6a1a",.8);L2();for(let i=0;i<20;i++){x2.fillStyle=`rgba(255,${120+i*5},30,.7)`;x2.beginPath();x2.ellipse(i*42,345,18,30+Math.abs(Math.sin(t*6+i))*30,0,0,7);x2.fill()}}
+  // grades
+  if(st.time==="night")fillC("#2a3460","multiply",.75);if(st.time==="dusk")fillC("#6a4a9a","multiply",.35);if(st.time==="golden")fillC("#ffc070","multiply",.3);if(st.time==="sunset")fillC("#ff8a5a","multiply",.35);if(st.time==="dawn")fillC("#ffc0b0","multiply",.25);
+  if(st.cond==="abandoned"){refilter("saturate(.4) brightness(.8)");fillC("#5a4a30","multiply",.25)}
+  if(st.cond==="frozen")fillC("#bfe0ff","multiply",.35);
+  if(st.cond==="pristine")refilter("brightness(1.08) saturate(1.1)");
+  const er={victorian:()=>refilter("sepia(.4)"),1920:()=>refilter("sepia(.6) saturate(.6)"),1950:()=>refilter("saturate(1.3) sepia(.15)"),1980:()=>fillC("#ff4fd8","screen",.08),postapoc:()=>{refilter("saturate(.6)");fillC("#d88a3a","multiply",.35)},scifi:()=>fillC("#4af0ff","screen",.06),ancient:()=>fillC("#e8c890","multiply",.2),prehistoric:()=>fillC("#c8b070","multiply",.15)}[st.era];
+  if(er)er();
+}
+
+/* --- Action: skeletal figure --- */
+function limb(x,y,a1,l1,a2,l2,w,col){const kx=x+Math.sin(a1)*l1,ky=y+Math.cos(a1)*l1,ex=kx+Math.sin(a1+a2)*l2,ey=ky+Math.cos(a1+a2)*l2;x2.strokeStyle=col;x2.lineWidth=w;x2.lineCap="round";x2.lineJoin="round";x2.beginPath();x2.moveTo(x,y);x2.lineTo(kx,ky);x2.lineTo(ex,ey);x2.stroke();return[ex,ey]}
+function drawRig(P,x,y,s,o){
+  // P: lean, head, sL,eL,sR,eR (arm angles from down), hL,kL,hR,kR, rot
+  x2.save();x2.translate(x,y);x2.scale(s*(o.flip?-1:1),s);x2.rotate(P.rot||0);
+  const hipY=0,neck=-62,body=o.col||"#7c5cff";
+  x2.save();x2.rotate(P.lean||0);
+  limb(-4,hipY,P.hR||0,34,P.kR||0,34,10,"#28233d");
+  // back arm
+  limb(-3,neck+6,P.sR||0,26,P.eR||0,24,8,"#e2b48f");
+  x2.strokeStyle=body;x2.lineWidth=22;x2.lineCap="round";x2.beginPath();x2.moveTo(0,hipY-6);x2.lineTo(0,neck+8);x2.stroke();
+  limb(4,hipY,P.hL||0,34,P.kL||0,34,10,"#1b1830");
+  x2.save();x2.translate(0,neck-14);x2.rotate(P.head||0);
+  x2.fillStyle="#f1c9a5";x2.beginPath();x2.arc(0,0,16,0,7);x2.fill();x2.fillStyle="#3a2a20";x2.beginPath();if(o.back)x2.arc(0,-1,17,0,7);else x2.arc(0,-4,16,PI,0);x2.fill();
+  if(!o.back){x2.fillStyle="#1b1830";x2.beginPath();x2.arc(5,-1,2.2,0,7);x2.arc(11,-1,2.2,0,7);x2.fill();
+    x2.strokeStyle="#1b1830";x2.lineWidth=1.8;x2.beginPath();const m=o.mouth||0;if(m>0)x2.arc(8,5,4,.2,PI-.2);else if(m<0)x2.arc(8,10,4,PI+.3,-.3);else{x2.moveTo(5,7);x2.lineTo(11,7)}x2.stroke();
+    if(o.brow){x2.beginPath();x2.moveTo(3,-6+o.brow);x2.lineTo(8,-5-o.brow);x2.moveTo(9,-6);x2.lineTo(13,-6+o.brow);x2.stroke()}}
+  x2.restore();
+  limb(3,neck+6,P.sL||0,26,P.eL||0,24,8,"#f1c9a5");
+  x2.restore();x2.restore();
+}
+const S=Math.sin,C=Math.cos;
+/* pose(phase 0..1 looping, k intensity) -> {P, dy, dx, dir} */
+const VERBS=[
+ ["stand","Stand / idle","standing still",(p,k)=>({P:{sL:.1+.03*S(p*6.28),sR:-.1,hL:.04,hR:-.04,head:.05*S(p*6.28)}})],
+ ["walk","Walk","walking",(p,k)=>{const a=S(p*6.28);return{P:{hL:.45*a*k,kL:-.3*Math.max(0,-a)*k-.05,hR:-.45*a*k,kR:-.3*Math.max(0,a)*k-.05,sL:-.4*a*k,eL:-.3,sR:.4*a*k,eR:-.3,lean:.05},dy:-3*Math.abs(C(p*6.28)),move:1}}],
+ ["run","Run","running",(p,k)=>{const a=S(p*6.28);return{P:{hL:.9*a*k,kL:-1.2*Math.max(0,-a)-.2,hR:-.9*a*k,kR:-1.2*Math.max(0,a)-.2,sL:-.9*a*k,eL:-1.4,sR:.9*a*k,eR:-1.4,lean:.25},dy:-10*Math.abs(C(p*6.28)),move:2.2}}],
+ ["sprint","Sprint","sprinting at full speed",(p,k)=>{const a=S(p*6.28);return{P:{hL:1.2*a,kL:-1.5*Math.max(0,-a)-.2,hR:-1.2*a,kR:-1.5*Math.max(0,a)-.2,sL:-1.2*a,eL:-1.5,sR:1.2*a,eR:-1.5,lean:.4},dy:-12*Math.abs(C(p*6.28)),move:3.2}}],
+ ["sneak","Sneak / tiptoe","sneaking on tiptoe",(p,k)=>{const a=S(p*6.28);return{P:{hL:.3*a,kL:-.5,hR:-.3*a,kR:-.5,sL:-1.2,eL:-.8,sR:-1.1,eR:-.9,lean:.3,head:.1},dy:16,move:.5}}],
+ ["jump","Jump","jumping",(p,k)=>{const u=Math.max(0,S(p*6.28));const c=p<.15||p>.85;return{P:{hL:c?.6:-.1,kL:c?-1.2:-.2,hR:c?.6:-.1,kR:c?-1.2:-.2,sL:c?.6:-2.6,sR:c?.4:-2.6,lean:c?.2:0},dy:c?14:-110*u*k}}],
+ ["leap","Leap","leaping forward",(p,k)=>{const u=Math.max(0,S(p*6.28));return{P:{hL:1.2*u,kL:-.2,hR:-1*u,kR:-.6*u,sL:-2.2*u,sR:-1.4*u,lean:.3},dy:-80*u*k,move:2}}],
+ ["crouch","Crouch","crouching low",(p,k)=>({P:{hL:1.4,kL:-2.2,hR:1.2,kR:-2.1,sL:-.6,eL:-.6,sR:-.3,eR:-.5,lean:.35},dy:40})],
+ ["sit","Sit","sitting down",(p,k)=>{const q=Math.min(1,p*2.5);return{P:{hL:1.5*q,kL:-1.5*q,hR:1.5*q,kR:-1.5*q,sL:-.4*q,eL:-.6*q,sR:-.4*q,eR:-.6*q},dy:32*q,seat:1}}],
+ ["kneel","Kneel","kneeling",(p,k)=>({P:{hL:1.5,kL:-1.5,hR:-.1,kR:-1.4,sL:-.3,sR:-.2,lean:.05,head:.15},dy:34})],
+ ["lie","Lie down","lying on the ground",(p,k)=>({P:{rot:-1.5,sL:-.2,sR:.2,hL:.05,hR:-.05,head:-.1},dy:60})],
+ ["crawl","Crawl","crawling on the ground",(p,k)=>{const a=S(p*6.28);return{P:{rot:-1.2,hL:1.4+.4*a,kL:-1.8,hR:1.4-.4*a,kR:-1.8,sL:-1.6+.5*a,eL:.2,sR:-1.6-.5*a,eR:.2},dy:55,move:.4}}],
+ ["climb","Climb","climbing upward",(p,k)=>{const a=S(p*6.28);return{P:{sL:-2.8+.4*a,eL:-.3,sR:-2.8-.4*a,eR:-.3,hL:.8+.5*a,kL:-1.2,hR:.8-.5*a,kR:-1.2},dy:-((p*120)%120),wall:1}}],
+ ["fall","Fall","falling backward",(p,k)=>{const q=Math.min(1,p*1.6);return{P:{rot:1.4*q,sL:-2.5*q,sR:-2.2*q,eL:-.4,hL:-.6*q,hR:.6*q,kL:-.4,head:-.3*q},dy:50*q}}],
+ ["stumble","Stumble","stumbling forward",(p,k)=>{const a=S(p*12.5);return{P:{lean:.45+.15*a,hL:.6,kL:-.6,hR:-.7,sL:-1.6+a*.5,sR:-2+a*.4,head:.3},move:1}}],
+ ["spin","Spin / turn","spinning around",(p,k)=>({P:{sL:-1.5,eL:0,sR:1.5,eR:0},flipT:p,spin:1})],
+ ["turn","Turn to camera","slowly turning to face the camera",(p,k)=>({P:{head:.1},turn:Math.min(1,p*1.5)})],
+ ["dance","Dance","dancing",(p,k)=>{const a=S(p*12.56),b=C(p*12.56);return{P:{sL:-2.2+a*.8,eL:-.6,sR:-1+b*1.2,eR:-.8,hL:.3*a,kL:-.4,hR:-.3*a,kR:-.4,lean:.15*b,head:.2*a},dy:-8*Math.abs(a)}}],
+ ["wave","Wave","waving",(p,k)=>({P:{sL:-2.6,eL:-.4+.5*S(p*25),sR:-.1}})],
+ ["point","Point","pointing into the distance",(p,k)=>({P:{sL:-1.57,eL:0,sR:-.1,head:-.05}})],
+ ["reach","Reach","reaching out",(p,k)=>{const q=S(p*3.14);return{P:{sL:-1.3-.3*q,eL:-.2*q,sR:-1.1*q,eR:-.2,lean:.25*q},move:0}}],
+ ["throw","Throw","throwing something",(p,k)=>{const q=(p*1.3)%1;return{P:{sL:q<.5?-3+q*2:-2+(q-.5)*4.4,eL:q<.5?-1.2:0,sR:-.6,lean:q<.5?-.15:.25,hL:.3,hR:-.3,kR:-.3},proj:q>.55?q:0}}],
+ ["punch","Punch","throwing a punch",(p,k)=>{const q=Math.max(0,S(p*12.56));return{P:{sL:-1.57*(.5+.5*q),eL:-1.6*(1-q),sR:-1.2,eR:-2,lean:.2*q,hL:.4,kL:-.3,hR:-.3,kR:-.2},impact:q>.95}}],
+ ["kick","Kick","kicking",(p,k)=>{const q=Math.max(0,S(p*6.28));return{P:{hL:1.8*q,kL:-.3*(1-q),hR:-.15,sL:.8,sR:-.9,lean:-.3*q},impact:q>.97}}],
+ ["sword","Swing sword","swinging a sword",(p,k)=>{const q=(p*1.5)%1,a=q<.4?-2.8:-2.8+(q-.4)*5;return{P:{sL:a,eL:-.2,sR:a+.1,eR:-.3,lean:q<.4?-.1:.3,hL:.4,kL:-.4,hR:-.3},sword:a}}],
+ ["block","Block / guard","raising a defensive guard",(p,k)=>({P:{sL:-1.6,eL:-1.7,sR:-1.3,eR:-1.9,hL:.3,kL:-.4,hR:-.3,kR:-.3,lean:-.1}})],
+ ["dodge","Dodge","dodging to the side",(p,k)=>{const q=S(p*6.28);return{P:{lean:-.5*q,hL:.5,kL:-.8,hR:-.4,sL:-.8,sR:-1.2},dx:-60*q}}],
+ ["flip","Backflip","doing a backflip",(p,k)=>{const q=(p*1.2)%1,air=q>.2&&q<.8,u=air?(q-.2)/.6:0;return{P:{rot:-6.28*u,hL:air?1.4:0,kL:air?-2:0,hR:air?1.4:0,kR:air?-2:0,sL:air?-1:-2.8,sR:air?-1:-2.8},dy:air?-110*S(u*3.14):0}}],
+ ["cartwheel","Cartwheel","doing a cartwheel",(p,k)=>({P:{rot:6.28*p,sL:-2.9,sR:2.9,hL:.5,hR:-.5},dy:-30*S(p*3.14),move:1.4})],
+ ["push","Push","pushing against something heavy",(p,k)=>({P:{sL:-1.4,eL:-.3,sR:-1.3,eR:-.4,lean:.6,hL:-.4,kL:-.3,hR:.6,kR:-.8},move:.3,box:1})],
+ ["pull","Pull","pulling a rope",(p,k)=>{const q=S(p*6.28);return{P:{sL:-1.4+.3*q,eL:-.5-.5*q,sR:-1.3+.3*q,eR:-.6-.5*q,lean:-.4,hL:.5,kL:-.6,hR:-.2},rope:1}}],
+ ["lift","Lift","lifting something heavy",(p,k)=>{const q=(1-C(p*6.28))/2;return{P:{sL:-.4-2.4*q,eL:-.2,sR:-.4-2.4*q,eR:-.2,hL:1.2*(1-q),kL:-1.8*(1-q),hR:1.2*(1-q),kR:-1.8*(1-q),lean:.4*(1-q)},dy:35*(1-q),weight:q}}],
+ ["carry","Carry","carrying a box",(p,k)=>{const a=S(p*6.28);return{P:{hL:.4*a,kL:-.3*Math.max(0,-a),hR:-.4*a,kR:-.3*Math.max(0,a),sL:-1,eL:-.8,sR:-1,eR:-.8,lean:-.08},move:.8,carry:1}}],
+ ["look","Look around","looking around nervously",(p,k)=>({P:{head:.35*S(p*6.28),sL:-.3,sR:.2,lean:.05*S(p*6.28)}})],
+ ["nod","Nod","nodding",(p,k)=>({P:{head:.2*Math.max(0,S(p*25))}})],
+ ["shrug","Shrug","shrugging",(p,k)=>{const q=Math.max(0,S(p*6.28));return{P:{sL:-.6*q,eL:-1.4*q,sR:-.6*q,eR:-1.4*q,head:.15*q},dy:-4*q}}],
+ ["clap","Clap","clapping",(p,k)=>{const q=S(p*31);return{P:{sL:-1.2,eL:-.6+.25*q,sR:-1.15,eR:-.6+.25*q}}}],
+ ["cheer","Cheer","cheering with arms raised",(p,k)=>{const q=Math.abs(S(p*12.56));return{P:{sL:-2.8,eL:-.2,sR:-2.7,eR:-.2},dy:-30*q}}],
+ ["slip","Slip","slipping and falling",(p,k)=>{const q=Math.min(1,p*2);return{P:{rot:1.3*q,hL:-1*q,hR:.5*q,sL:-2.6*q,sR:-1.5*q,head:-.4*q},dy:50*q}}],
+ ["float","Float / levitate","levitating in the air",(p,k)=>({P:{sL:-.8,sR:-.8,eL:-.3,eR:-.3,hL:.2,kL:-.4,hR:.1,kR:-.3,head:-.1},dy:-60-15*S(p*6.28)})],
+ ["fly","Fly","flying through the air",(p,k)=>({P:{rot:1.3,sL:-2.9,sR:-2.9,hL:.05,hR:-.05},dy:-120+10*S(p*6.28),move:2.5})],
+ ["swim","Swim","swimming",(p,k)=>{const a=S(p*6.28);return{P:{rot:1.4,sL:-3*((p*2)%1)*2,sR:-3*(((p*2)+.5)%1)*2,hL:.3*a,hR:-.3*a},dy:-30,move:1,water:1}}],
+ ["dive","Dive","diving",(p,k)=>{const q=p;return{P:{rot:2.6*q,sL:-2.9,sR:-2.9,hL:0,hR:0},dy:-60+160*q*q,dx:120*q,water:1}}],
+ ["hammer","Hammer","hammering",(p,k)=>{const q=(p*2)%1;return{P:{sL:q<.6?-2.6:-2.6+(q-.6)*4,eL:-.3,sR:-.9,eR:-1,lean:.15,hL:.2,hR:-.2},hammer:1,impact:q>.95}}],
+ ["drink","Drink","drinking from a cup",(p,k)=>{const q=(1-C(p*6.28))/2;return{P:{sL:-.6-1.6*q,eL:-1.4-1.1*q,sR:-.1,head:-.25*q},cup:1}}],
+ ["read","Read","reading a book",(p,k)=>({P:{sL:-.8,eL:-1.3,sR:-.8,eR:-1.3,head:.25},book:1})],
+ ["type","Type on phone","typing on a phone",(p,k)=>({P:{sL:-.7,eL:-1.4+.05*S(p*40),sR:-.7,eR:-1.4,head:.35},phone:1})],
+ ["cry","Cry","crying with face in hands",(p,k)=>({P:{sL:-1,eL:-2.5,sR:-1,eR:-2.5,head:.3,lean:.15},dy:2*S(p*25)})],
+ ["laugh","Laugh","laughing",(p,k)=>({P:{sL:-.3,eL:-1.2,sR:.2,head:-.25+.08*S(p*25),lean:-.12},dy:-2*Math.abs(S(p*25))})],
+ ["scream","Scream","screaming",(p,k)=>({P:{sL:-.8,eL:-2.2,sR:-.8,eR:-2.2,head:-.25,lean:-.1}})],
+ ["hug","Hug","hugging someone",(p,k)=>({P:{sL:-1.4,eL:-1.2,sR:-1.3,eR:-1.3,lean:.1},partner:"hug"})],
+ ["handshake","Handshake","shaking hands",(p,k)=>({P:{sL:-1.1+.1*S(p*25),eL:-.3,sR:-.1},partner:"shake"})],
+ ["fight","Fight","fighting an opponent",(p,k)=>{const q=Math.max(0,S(p*12.56));return{P:{sL:-1.57*(.5+.5*q),eL:-1.6*(1-q),sR:-1.4,eR:-2,lean:.2*q,hL:.4,kL:-.3,hR:-.3},partner:"fight"}}],
+ ["chase","Chase","chasing someone",(p,k)=>{const a=S(p*6.28);return{P:{hL:.9*a,kL:-1.2*Math.max(0,-a)-.2,hR:-.9*a,kR:-1.2*Math.max(0,a)-.2,sL:-.9*a,eL:-1.4,sR:.9*a,eR:-1.4,lean:.25},dy:-10*Math.abs(C(p*6.28)),move:2.2,partner:"chase"}}],
+ ["ride","Ride bike","riding a bicycle",(p,k)=>{const a=p*6.28;return{P:{hL:1.1+.4*S(a),kL:-1.3+.5*C(a),hR:1.1-.4*S(a),kR:-1.3-.5*C(a),sL:-1.2,eL:-.2,sR:-1.2,eR:-.2,lean:.3},dy:-10,move:2,bike:a}}],
+ ["drive","Drive","driving a car",(p,k)=>({P:{hL:1.5,kL:-1.5,hR:1.5,kR:-1.5,sL:-1.2,eL:-.6+.1*S(p*6.28),sR:-1.2,eR:-.6},car:1,dy:30})]
+];
+const AROWS=[
+ {k:"verb",l:"Action",items:VERBS.map(v=>[v[0],v[1],v[2]])},
+ {k:"spd",l:"Speed",items:[["normal","Normal",""],["slowmo","Slow-mo","in slow motion"],["slow","Slow","slowly"],["fast","Fast","quickly"],["frantic","Frantic","frantically"]]},
+ {k:"int",l:"Intensity",items:[["normal","Normal",""],["gentle","Gentle","gently"],["powerful","Powerful","with powerful force"],["explosive","Explosive","with explosive energy"]]},
+ {k:"emo",l:"Emotion",items:[["none","None",""],["joyful","Joyful","joyfully"],["angry","Angry","angrily"],["sad","Sad","sadly"],["scared","Scared","in fear"],["determined","Determined","with determination"],["confident","Confident","confidently"],["nervous","Nervous","nervously"],["tired","Exhausted","exhausted"],["playful","Playful","playfully"],["calm","Calm","calmly"],["shocked","Shocked","in shock"],["desperate","Desperate","desperately"]]},
+ {k:"dir",l:"Direction",items:[["inplace","In place",""],["lr","Left to right","from left to right"],["rl","Right to left","from right to left"],["toward","Toward camera","toward the camera"],["away","Away from camera","away from the camera"],["circle","In a circle","in a circle"]]},
+ {k:"tim",l:"Timing",items:[["loop","Continuous",""],["once","Single action","once"],["accel","Speeds up","gradually speeding up"],["stop","Sudden stop","then suddenly stops"],["freeze","Freezes mid-action","freezing mid-motion"],["repeat","Repeats","over and over"]]},
+ {k:"with",l:"Interaction",items:[["none","Alone",""],["partner","With a partner","with a partner"],["crowd","Through a crowd","through a crowd"],["object","With an object","interacting with an object"],["chased","Being chased","while being chased"]]}
+];
+const emoFX={joyful:{mouth:1,lean:-.05,col:"#ffb02a"},angry:{mouth:-1,brow:3,lean:.12,col:"#d83a3a"},sad:{mouth:-1,head:.35,lean:.15,col:"#4a6aa8",slow:.6},scared:{mouth:-1,brow:-2,shake:3,col:"#8a8aa8"},determined:{brow:2,lean:.1,col:"#3a8a5a"},confident:{mouth:1,lean:-.1,col:"#7c5cff"},nervous:{shake:1.5,brow:-1,col:"#a8a05a"},tired:{head:.3,lean:.2,slow:.55,col:"#7a7a8a"},playful:{mouth:1,bounce:6,col:"#ff6ad8"},calm:{slow:.75,col:"#4ab0c8"},shocked:{brow:-3,mouth:-1,col:"#e8e8ff"},desperate:{brow:-2,lean:.2,col:"#a85a3a"}};
+function drawAction(st,t){
+  L2();x2.filter="none";x2.globalCompositeOperation="source-over";
+  const v=VERBS.find(a=>a[0]===st.verb)||VERBS[1];
+  const E=emoFX[st.emo]||{};
+  let sp={normal:1,slowmo:.25,slow:.55,fast:1.6,frantic:2.4}[st.spd]*(E.slow||1);
+  const k={normal:1,gentle:.6,powerful:1.25,explosive:1.45}[st.int];
+  const per=1.6/sp; let tt=t;
+  let p=(tt%per)/per, el2=(t%(per*3))/(per*3);
+  if(st.tim==="accel"){const g=(t%6)/6;p=(Math.pow(g,2)*6*1.6)%1}
+  if(st.tim==="stop"){const g=(t%(per*3))/(per*3);if(g>.65)p=.25}
+  if(st.tim==="freeze"){const g=(t%(per*2.5))/(per*2.5);if(g>.45)p=.3}
+  if(st.tim==="once"){const g=(t%(per*2.2))/(per*2.2);p=Math.min(.999,g*1.4)}
+  const R=v[3](p,k);const P=Object.assign({},R.P);
+  if(E.head)P.head=(P.head||0)+E.head;if(E.lean)P.lean=(P.lean||0)+E.lean;
+  // background with travel parallax
+  const travel=(R.move||0)*sp*90;let bx=0,sc=1.9,fx=400,fy=330,flip=false,back=false;
+  const dir=st.dir,G=(t%5)/5;
+  if(dir==="lr"){fx=60+G*680}else if(dir==="rl"){fx=740-G*680;flip=true}else if(dir==="toward"){sc=1+G*1.6;fy=290+G*110}else if(dir==="away"){sc=2.6-G*1.6;fy=400-G*110;back=true}else if(dir==="circle"){fx=400+Math.cos(t*.9)*230;fy=330+Math.sin(t*.9)*35;sc=1.7+Math.sin(t*.9)*.4;flip=Math.sin(t*.9)<0}else bx=-(t*travel)%200;
+  if(R.water){const g=x2.createLinearGradient(0,0,0,450);g.addColorStop(0,"#3a9ad8");g.addColorStop(1,"#0a3a6a");x2.fillStyle=g;x2.fillRect(0,0,800,450)}
+  else{const g=x2.createLinearGradient(0,0,0,360);g.addColorStop(0,"#bcd8f4");g.addColorStop(1,"#eef3f8");x2.fillStyle=g;x2.fillRect(0,0,800,450);
+    x2.fillStyle="#c8d4cf";for(let i=-1;i<6;i++){x2.beginPath();x2.ellipse(i*200+(bx*.3)%200,370,140,60,0,PI,0);x2.fill()}
+    x2.fillStyle="#9fb5a5";x2.fillRect(0,370,800,90);x2.fillStyle="#8aa192";for(let i=-1;i<10;i++)x2.fillRect(i*100+bx%100,395,50,4)}
+  if(R.wall){x2.fillStyle="#9a8a7a";x2.fillRect(250,0,300,450);x2.fillStyle="#6a5a4a";for(let i=0;i<14;i++)x2.fillRect(280+(i*53)%240,((i*67)+(t*sp*70))%450,14,10)}
+  if(st.with==="crowd"||R.partner==="crowd"){for(let i=0;i<8;i++){const x=((i*110)+bx*1.4+800)%900-50;x2.fillStyle="rgba(60,60,90,.7)";x2.beginPath();x2.arc(x,240,18,0,7);x2.fill();x2.fillRect(x-20,258,40,110)}}
+  const shk=E.shake?((Math.random()-.5)*E.shake):0, bounce=E.bounce?-Math.abs(S(t*8))*E.bounce:0;
+  let dy=(R.dy||0)+bounce, dx=(R.dx||0)+shk;
+  // shadow
+  x2.fillStyle="rgba(0,0,0,.18)";x2.beginPath();x2.ellipse(fx+dx*sc*.5,fy+70*sc*.95,30*sc,7*sc,0,0,7);x2.fill();
+  // props behind
+  if(R.box){x2.fillStyle="#8a6a3a";x2.fillRect(fx+(flip?-1:1)*38*sc-(flip?60*sc:0),fy-10*sc,60*sc,80*sc)}
+  if(R.bike){x2.strokeStyle="#2a2a33";x2.lineWidth=4;[[-40,60],[40,60]].forEach(([ox,oy])=>{x2.beginPath();x2.arc(fx+ox*sc*.6,fy+oy*sc*.8+dy*.2,26*sc*.6,0,7);x2.stroke()})}
+  if(R.car){x2.fillStyle="#c83a3a";x2.beginPath();x2.roundRect(fx-120*sc*.6,fy+10,240*sc*.6,60,14);x2.fill();x2.fillStyle="#9fd0ff";x2.fillRect(fx-40,fy-40,60,40)}
+  if(R.partner&&R.partner!=="crowd"||st.with==="partner"||st.with==="chased"){
+    const pt=R.partner||"near";let px=fx+(flip?-1:1)*70*sc, pf=!flip;let PP={sL:-1.4,eL:-1.2,sR:-1.3,eR:-1.3};
+    if(pt==="chase"||st.with==="chased"){const ahead=pt==="chase"?1:-1;px=fx+(flip?-1:1)*ahead*120*sc;pf=flip;const a=S(p*6.28+1);PP={hL:.9*a,kL:-1.2*Math.max(0,-a)-.2,hR:-.9*a,kR:-1.2*Math.max(0,a)-.2,sL:-.9*a,eL:-1.4,sR:.9*a,eR:-1.4,lean:.25}}
+    if(pt==="fight"){PP={sL:-1.6,eL:-1.7,sR:-1.3,eR:-1.9,lean:-.2*Math.max(0,S(p*12.56))}}
+    if(pt==="shake"){PP={sL:-1.1+.1*S(p*25),eL:-.3,sR:-.1};px=fx+(flip?-1:1)*62*sc}
+    if(pt==="hug")px=fx+(flip?-1:1)*34*sc;
+    drawRig(PP,px,fy+(pt==="chase"||st.with==="chased"?-10*Math.abs(C(p*6.28)):0),sc,{flip:pf,col:"#e2557a",mouth:1})}
+  // main figure (with spin/turn)
+  let fl=flip,bk=back;if(R.spin){const a=R.flipT*6.28;fl=C(a)<0;bk=S(a)>0}
+  if(R.turn!==undefined){bk=R.turn<.5;}
+  drawRig(P,fx+dx*sc*.5,fy+dy*sc*.5,sc,{flip:fl,back:bk,col:E.col,mouth:E.mouth,brow:E.brow});
+  // props front
+  const hx=fx+(fl?-1:1)*30*sc, hy=fy-40*sc;
+  if(R.sword!==undefined){const a=R.sword;const sx=fx+(fl?-1:1)*(Math.sin(a)*48)*sc,sy=fy-56*sc+Math.cos(a)*48*sc;x2.strokeStyle="#d8dde8";x2.lineWidth=4;x2.beginPath();x2.moveTo(sx,sy);x2.lineTo(sx+(fl?-1:1)*Math.sin(a)*70*sc,sy+Math.cos(a)*70*sc);x2.stroke()}
+  if(R.hammer){x2.fillStyle="#555";x2.fillRect(fx+(fl?-60:30)*sc,fy-20*sc,30*sc,16*sc);x2.fillStyle="#ff9a3a";x2.fillRect(fx+(fl?-70:40)*sc,fy+28*sc,40*sc,8*sc)}
+  if(R.carry){x2.fillStyle="#b8884a";x2.fillRect(fx-10*sc+(fl?-30:0)*sc,fy-62*sc,46*sc,36*sc)}
+  if(R.weight){x2.fillStyle="#2a2a33";const wy=fy+(40-110*R.weight)*sc;x2.fillRect(fx-50*sc,wy,100*sc,6*sc);x2.beginPath();x2.arc(fx-50*sc,wy+3*sc,14*sc,0,7);x2.arc(fx+50*sc,wy+3*sc,14*sc,0,7);x2.fill()}
+  if(R.cup){x2.fillStyle="#fff";x2.fillRect(fx+(fl?-34:18)*sc,fy-92*sc+(1-(1-C(p*6.28))/2)*40*sc,12*sc,16*sc)}
+  if(R.book){x2.fillStyle="#a83a3a";x2.fillRect(fx+(fl?-50:14)*sc,fy-70*sc,36*sc,26*sc)}
+  if(R.phone){x2.fillStyle="#1a1a22";x2.fillRect(fx+(fl?-34:20)*sc,fy-70*sc,12*sc,20*sc);x2.fillStyle="#7ab8ff";x2.fillRect(fx+(fl?-33:21)*sc,fy-69*sc,10*sc,16*sc)}
+  if(R.rope){x2.strokeStyle="#a88a5a";x2.lineWidth=4;x2.beginPath();x2.moveTo(fx+(fl?-40:30)*sc,fy-50*sc);x2.lineTo(fl?0:800,fy-30*sc);x2.stroke()}
+  if(R.proj){x2.fillStyle="#e85d3a";x2.beginPath();x2.arc(fx+(fl?-1:1)*(40+R.proj*500)*sc*.6,fy-90*sc+R.proj*40,8,0,7);x2.fill()}
+  if(R.impact||(st.int==="explosive"&&R.impact!==undefined&&p%.5<.05)){x2.strokeStyle="#ffcf3a";x2.lineWidth=3;for(let i=0;i<8;i++){const a=i/8*6.28,cx0=hx+(fl?-1:1)*40*sc;x2.beginPath();x2.moveTo(cx0+C(a)*14,hy+S(a)*14);x2.lineTo(cx0+C(a)*34,hy+S(a)*34);x2.stroke()}}
+  if(st.with==="object"&&!R.box&&!R.carry){x2.fillStyle="#3b82f6";x2.beginPath();x2.arc(hx+(fl?-1:1)*30*sc,fy+50*sc,14*sc,0,7);x2.fill()}
+  if(st.spd==="slowmo"){fillC("#9ab8ff","multiply",.12)}
+  if(st.spd==="frantic"||st.int==="explosive"){L2();x2.strokeStyle="rgba(40,40,60,.35)";x2.lineWidth=2;for(let i=0;i<10;i++){const y=fy-120*sc+i*18*sc;x2.beginPath();x2.moveTo(fx-(fl?-1:1)*60*sc,y);x2.lineTo(fx-(fl?-1:1)*(110+hash(i)*60)*sc,y);x2.stroke()}}
+  if(st.emo==="sad")fillC("#7a8ab8","multiply",.2);if(st.emo==="angry")fillC("#ff8a6a","multiply",.12);
+}
+/* --- Named presets --- */
+const SETSHOTS=[];
+ENVS.slice(1).forEach(e=>SETSHOTS.push([e[1],"Environment",e[2][0].toUpperCase()+e[2].slice(1)+".",{env:e[0]}]));
+[
+["Rain-soaked neon alley","Combo","Wet back alley glowing at night.",{env:"alley",time:"night",wx:"rain",era:"nearfuture"}],
+["Cyberpunk megacity","Combo","Towering future skyline at night.",{env:"skyline",time:"night",era:"scifi",crowd:"busy",wx:"rain"}],
+["Abandoned shopping mall","Combo","Empty decaying interior.",{env:"warehouse",cond:"abandoned",crowd:"empty"}],
+["Haunted Victorian mansion","Combo","Dark, foggy, decaying.",{env:"library",era:"victorian",cond:"abandoned",wx:"fog"}],
+["Enchanted forest","Combo","Misty, magical woods.",{env:"forest",wx:"fog",time:"golden"}],
+["Autumn forest path","Combo","Falling orange leaves.",{env:"forest",season:"autumn",time:"golden"}],
+["Winter wonderland","Combo","Snow-covered pines.",{env:"pine",season:"winter",wx:"snow"}],
+["Cherry blossom spring","Combo","Pink petals drifting.",{env:"meadow",season:"spring",time:"day"}],
+["Alien desert with twin suns","Combo","Strange purple world.",{env:"alien",time:"day",wx:"heat"}],
+["Post-apocalyptic wasteland","Combo","Ruined, dusty, orange sky.",{env:"desert",era:"postapoc",cond:"ruined",wx:"sandstorm"}],
+["Overgrown ruined city","Combo","Nature reclaiming streets.",{env:"city",cond:"overgrown",era:"postapoc",crowd:"empty"}],
+["Flooded subway town","Combo","Water filling the streets.",{env:"town",cond:"flooded",wx:"rain"}],
+["Burning castle","Combo","Fortress engulfed in flames.",{env:"castle",cond:"burning",time:"night",era:"medieval"}],
+["Medieval village market","Combo","Bustling old-world town.",{env:"town",era:"medieval",crowd:"busy"}],
+["Ancient Roman ruins","Combo","Sunlit columns.",{env:"ruins",era:"ancient",time:"golden"}],
+["Prehistoric jungle","Combo","Dinosaur-era wilderness.",{env:"jungle",era:"prehistoric",wx:"fog"}],
+["Snowbound mountain pass","Combo","Blizzard at altitude.",{env:"snowpeak",wx:"blizzard"}],
+["Northern lights over tundra","Combo","Aurora on the ice.",{env:"tundra",time:"night",wx:"aurora"}],
+["Tropical paradise","Combo","Palm beach at sunset.",{env:"beach",time:"sunset"}],
+["Stormy sea","Combo","Lightning over the ocean.",{env:"ocean",wx:"storm"}],
+["Volcanic eruption","Combo","Lava and ash.",{env:"volcano",time:"dusk",wx:"cloudy"}],
+["Deep-sea reef","Combo","Glowing coral underwater.",{env:"underwater"}],
+["Floating sky kingdom","Combo","Above the clouds at sunset.",{env:"sky",time:"sunset"}],
+["Space station view","Combo","Planet below, stars above.",{env:"space",era:"scifi"}],
+["Starship bridge","Combo","Command deck in deep space.",{env:"spaceship",era:"scifi"}],
+["1950s roadside diner","Combo","Checkerboard retro diner.",{env:"diner",era:"1950"}],
+["1980s arcade night","Combo","Neon retro club vibe.",{env:"club",era:"1980"}],
+["1920s speakeasy","Combo","Hidden jazz-age bar.",{env:"bar",era:"1920",crowd:"few"}],
+["Smoky noir office","Combo","Rainy night detective office.",{env:"office",era:"1920",time:"night",wx:"rain"}],
+["Modern open office","Combo","Bright workspace.",{env:"office",era:"modern",crowd:"few",cond:"pristine"}],
+["Secret laboratory","Combo","Glowing experiments.",{env:"lab",time:"night"}],
+["Abandoned hospital","Combo","Eerie empty ward.",{env:"hospital",cond:"abandoned",crowd:"empty"}],
+["Old dusty library","Combo","Quiet stacks of books.",{env:"library",cond:"lived"}],
+["Cozy cabin bedroom","Combo","Warm room with snow outside.",{env:"bedroom",season:"winter",time:"night"}],
+["Family kitchen morning","Combo","Bright lived-in kitchen.",{env:"kitchen",time:"dawn",cond:"lived"}],
+["Gothic cathedral","Combo","Vast stone nave.",{env:"cathedral",scale:"vast"}],
+["Gritty factory floor","Combo","Industrial machines.",{env:"factory",cond:"lived"}],
+["Empty warehouse","Combo","Echoing dark space.",{env:"warehouse",crowd:"empty"}],
+["Rooftop at sunset","Combo","City glowing below.",{env:"rooftop",time:"sunset"}],
+["Rainy city street","Combo","Umbrellas and reflections.",{env:"city",wx:"rain",crowd:"busy"}],
+["Quiet small town","Combo","Sleepy streets.",{env:"town",crowd:"empty",time:"dawn"}],
+["Countryside farm","Combo","Rolling green fields.",{env:"farm",time:"golden"}],
+["Wild West canyon","Combo","Red rock at sunset.",{env:"canyon",time:"sunset",wx:"heat"}],
+["Endless desert dunes","Combo","Vast rolling sand.",{env:"desert",scale:"vast",wx:"heat"}],
+["Misty swamp at dawn","Combo","Murky and quiet.",{env:"swamp",time:"dawn",wx:"fog"}],
+["Crystal ice cave","Combo","Frozen cave.",{env:"cave",cond:"frozen"}],
+["Smoky battlefield","Combo","War-torn ground.",{env:"battlefield",wx:"fog"}],
+["Packed stadium","Combo","Roaring crowd.",{env:"stadium",time:"night",crowd:"busy"}],
+["Infinite white void","Combo","Clean studio emptiness.",{env:"studio"}],
+["Infinite black void","Combo","Nothing but darkness.",{env:"blackvoid"}],
+["Mountain summit","Combo","Top of the world, epic scale.",{env:"snowpeak",scale:"vast",wx:"clear"}],
+["Meadow under rainbow","Combo","After the rain.",{env:"meadow",wx:"rainbow"}],
+["Windswept plains","Combo","Grass bending in wind.",{env:"meadow",wx:"wind",scale:"vast"}],
+["Dystopian city","Combo","Oppressive future streets.",{env:"city",era:"scifi",cond:"lived",wx:"fog"}],
+["Steampunk workshop","Combo","Victorian machines.",{env:"factory",era:"victorian"}],
+["Classroom after hours","Combo","Empty school room.",{env:"classroom",time:"dusk",crowd:"empty"}],
+["Neon nightclub","Combo","Lights and dancing crowd.",{env:"club",crowd:"busy"}],
+["Dive bar","Combo","Dim lived-in bar.",{env:"bar",cond:"lived",crowd:"few"}],
+["Frozen lake","Combo","Ice and snow.",{env:"tundra",season:"winter",wx:"snow"}],
+["Jungle temple ruins","Combo","Overgrown ancient stone.",{env:"ruins",cond:"overgrown",era:"ancient"}],
+["Moonlit forest","Combo","Silver night woods.",{env:"forest",time:"night",wx:"fog"}]
+].forEach(s=>SETSHOTS.push(s));
+const ACTSHOTS=[];
+VERBS.forEach(v=>ACTSHOTS.push([v[1],"Action",v[2][0].toUpperCase()+v[2].slice(1)+".",{verb:v[0]}]));
+[
+["Heroic slow-mo run","Combo","Running toward camera in slow motion.",{verb:"run",spd:"slowmo",dir:"toward",emo:"determined"}],
+["Panicked escape","Combo","Sprinting away in fear, being chased.",{verb:"sprint",emo:"scared",with:"chased",dir:"lr"}],
+["Triumphant jump","Combo","Joyful leap with arms up.",{verb:"jump",emo:"joyful",int:"explosive"}],
+["Victory celebration","Combo","Cheering repeatedly.",{verb:"cheer",emo:"joyful",tim:"repeat"}],
+["Sad walk away","Combo","Slow walk away from camera.",{verb:"walk",emo:"sad",dir:"away",spd:"slow"}],
+["Confident strut","Combo","Walking toward camera with swagger.",{verb:"walk",emo:"confident",dir:"toward"}],
+["Exhausted stumble","Combo","Tired, stumbling forward.",{verb:"stumble",emo:"tired",spd:"slow"}],
+["Nervous pacing","Combo","Walking back and forth.",{verb:"walk",emo:"nervous",dir:"lr",tim:"repeat"}],
+["Stealth sneak","Combo","Tiptoeing quietly.",{verb:"sneak",emo:"nervous",dir:"lr"}],
+["Martial arts kick","Combo","Powerful snap kick.",{verb:"kick",int:"explosive",emo:"determined"}],
+["Knockout punch","Combo","Explosive punch freezing mid-impact.",{verb:"punch",int:"explosive",tim:"freeze"}],
+["Sword duel","Combo","Swinging at an opponent.",{verb:"sword",with:"partner",emo:"angry"}],
+["Epic sword strike","Combo","Slow-motion overhead slash.",{verb:"sword",spd:"slowmo",int:"powerful"}],
+["Bar fight","Combo","Brawling with someone.",{verb:"fight",emo:"angry",spd:"fast"}],
+["Dramatic fall","Combo","Falling backward in slow motion.",{verb:"fall",spd:"slowmo",emo:"shocked"}],
+["Comedic slip","Combo","Slipping on the floor.",{verb:"slip",emo:"shocked"}],
+["Parkour flip","Combo","Backflip with power.",{verb:"flip",int:"explosive"}],
+["Gymnast cartwheel","Combo","Smooth cartwheel across frame.",{verb:"cartwheel",dir:"lr",emo:"playful"}],
+["Happy dance","Combo","Joyful dancing.",{verb:"dance",emo:"joyful"}],
+["Slow romantic dance","Combo","Gentle dance in slow motion.",{verb:"dance",spd:"slow",int:"gentle",with:"partner"}],
+["Club dancing","Combo","Frantic dance in a crowd.",{verb:"dance",spd:"fast",with:"crowd"}],
+["Warm embrace","Combo","Hugging a loved one.",{verb:"hug",emo:"joyful",int:"gentle"}],
+["Tearful reunion","Combo","Crying then hugging.",{verb:"hug",emo:"sad"}],
+["Business handshake","Combo","Confident handshake.",{verb:"handshake",emo:"confident"}],
+["Chase scene","Combo","Chasing someone across frame.",{verb:"chase",dir:"lr",emo:"angry",spd:"fast"}],
+["Mountain climb","Combo","Climbing with determination.",{verb:"climb",emo:"determined"}],
+["Desperate crawl","Combo","Crawling desperately.",{verb:"crawl",emo:"desperate"}],
+["Kneeling in prayer","Combo","Kneeling calmly.",{verb:"kneel",emo:"calm"}],
+["Collapse to knees","Combo","Dropping in despair.",{verb:"kneel",emo:"sad",tim:"once"}],
+["Lying in grass","Combo","Relaxing on the ground.",{verb:"lie",emo:"calm"}],
+["Floating in zero gravity","Combo","Weightless drifting.",{verb:"float",spd:"slow",emo:"calm"}],
+["Superhero flight","Combo","Flying across the sky.",{verb:"fly",dir:"lr",emo:"confident",int:"powerful"}],
+["Underwater swim","Combo","Graceful swimming.",{verb:"swim",spd:"slow",dir:"lr"}],
+["Cliff dive","Combo","Diving into water.",{verb:"dive",spd:"slowmo"}],
+["Blacksmith hammering","Combo","Rhythmic powerful hammer strikes.",{verb:"hammer",int:"powerful",tim:"repeat"}],
+["Heavy deadlift","Combo","Straining to lift weight.",{verb:"lift",int:"powerful",emo:"determined"}],
+["Pushing a boulder","Combo","Straining against a heavy object.",{verb:"push",int:"powerful",emo:"determined"}],
+["Tug of war","Combo","Pulling a rope hard.",{verb:"pull",int:"powerful"}],
+["Moving day","Combo","Carrying a box.",{verb:"carry",dir:"lr"}],
+["Throwing a ball","Combo","Powerful throw.",{verb:"throw",int:"powerful"}],
+["Morning coffee sip","Combo","Calmly drinking.",{verb:"drink",emo:"calm",spd:"slow"}],
+["Reading by the window","Combo","Quiet reading.",{verb:"read",emo:"calm"}],
+["Doomscrolling","Combo","Typing on a phone.",{verb:"type",emo:"tired"}],
+["Waving goodbye","Combo","Sad wave.",{verb:"wave",emo:"sad"}],
+["Friendly wave hello","Combo","Joyful wave.",{verb:"wave",emo:"joyful"}],
+["Pointing at the horizon","Combo","Pointing with confidence.",{verb:"point",emo:"determined"}],
+["Reaching for help","Combo","Desperate reach.",{verb:"reach",emo:"desperate",spd:"slowmo"}],
+["Paranoid glance","Combo","Looking around nervously.",{verb:"look",emo:"scared"}],
+["Silent nod","Combo","Calm agreement.",{verb:"nod",emo:"calm"}],
+["Shrug it off","Combo","Playful shrug.",{verb:"shrug",emo:"playful"}],
+["Standing ovation","Combo","Clapping enthusiastically.",{verb:"clap",emo:"joyful",with:"crowd"}],
+["Bursting into laughter","Combo","Laughing hard.",{verb:"laugh",emo:"joyful",int:"powerful"}],
+["Breaking down crying","Combo","Face in hands.",{verb:"cry",emo:"sad"}],
+["Primal scream","Combo","Screaming with rage.",{verb:"scream",emo:"angry",int:"explosive"}],
+["Terrified scream","Combo","Screaming in fear.",{verb:"scream",emo:"scared"}],
+["Dramatic turn to camera","Combo","Slow reveal of the face.",{verb:"turn",spd:"slow"}],
+["Spinning with joy","Combo","Twirling around.",{verb:"spin",emo:"joyful"}],
+["Defensive stance","Combo","Guard up, ready.",{verb:"block",emo:"determined"}],
+["Matrix dodge","Combo","Slow-motion dodge.",{verb:"dodge",spd:"slowmo",int:"explosive"}],
+["Bike ride through town","Combo","Riding across frame.",{verb:"ride",dir:"lr",emo:"joyful"}],
+["Road trip driving","Combo","Calm driving.",{verb:"drive",emo:"calm"}],
+["Waiting impatiently","Combo","Standing, nervous.",{verb:"stand",emo:"nervous"}],
+["Sitting in thought","Combo","Sitting down slowly.",{verb:"sit",emo:"calm",spd:"slow"}],
+["Running in circles","Combo","Playful circular run.",{verb:"run",dir:"circle",emo:"playful"}],
+["Pushing through a crowd","Combo","Walking through people.",{verb:"walk",with:"crowd",emo:"determined"}],
+["Sprint then stop","Combo","Sudden halt mid-run.",{verb:"sprint",tim:"stop"}],
+["Accelerating run","Combo","Starts slow, speeds up.",{verb:"run",tim:"accel"}],
+["Freeze-frame leap","Combo","Leap that freezes in the air.",{verb:"leap",tim:"freeze"}]
+].forEach(s=>ACTSHOTS.push(s));
+Object.assign(SPECS,{
+ setting:{title:"Setting builder",hint:"Pick an environment, then layer time of day, weather, season, era, condition, people and scale. The backdrop updates live.",rows:SETROWS,shots:SETSHOTS,render:drawSetting,own:1,q:"film location"},
+ action:{title:"Action builder",hint:"Pick an action, then set speed, intensity, emotion, direction, timing and interaction. The figure acts it out.",rows:AROWS,shots:ACTSHOTS,render:drawAction,own:1,q:"action"}
+});
+
+const FIELDS=[
+ {k:"subject",n:"Subject",h:"The main focus — a majestic wolf, an astronaut, a vintage leather boot.",s:["A silver-haired blacksmith","A lone astronaut in a scuffed white suit","A majestic grey wolf"]},
+ {k:"action",n:"Action",h:"What the subject is doing — howling, drinking coffee, sitting on a stool.",s:["Hammering a glowing sword","Slowly turning to face the camera","Walking through falling snow"]},
+ {k:"setting",n:"Setting",h:"The background or environment.",s:["Inside a gritty medieval forge","In a neon-lit cyberpunk cafe","On a snow-capped mountain peak"]},
+ {k:"camera",n:"Camera",h:"Lens, angle, perspective or movement.",s:["Close-up macro shot focusing on the details","Low-angle slow dolly-in","Sweeping aerial drone shot"]},
+ {k:"lighting",n:"Lighting / Mood",h:"Illumination and emotional tone.",s:["Dramatic firelight, heavy shadows, atmospheric smoke","Warm golden hour glow","Soft moody morning fog"]},
+ {k:"style",n:"Style",h:"Artistic medium or aesthetic.",s:["Photorealistic, high-detail cinematic","Cyberpunk aesthetic","Studio product photography"]}
+];
+let state={}; FIELDS.forEach(f=>state[f.k]={v:"",sugs:null,need:false});
+let sample=null, cur=null;
+const $=id=>document.getElementById(id);
+
+try{const s=JSON.parse(localStorage.getItem("klingState")||"null"); if(s){state=Object.assign(state,s.state);$("scene").value=s.scene||""}}catch(e){}
+function save(){try{localStorage.setItem("klingState",JSON.stringify({state,scene:$("scene").value}))}catch(e){}}
+
+function render(){
+  const g=$("grid"); g.innerHTML=""; let needs=0;
+  FIELDS.forEach(f=>{
+    const st=state[f.k]; const b=document.createElement("button");
+    const isNeed=!st.v && st.need; if(isNeed) needs++;
+    b.className="field"+(st.v?" set":"")+(isNeed?" need":"");
+    b.innerHTML=`<span class="name"></span><span class="val"></span>`;
+    b.querySelector(".name").textContent=f.n;
+    if(st.v){const c=document.createElement("span");c.className="chip ok";c.textContent="Set";b.querySelector(".name").append(c)}
+    else if(isNeed){const c=document.createElement("span");c.className="chip need";c.textContent="Needs input";b.querySelector(".name").append(c)}
+    b.querySelector(".val").textContent=st.v||(isNeed?"Tap to add direction":"Tap to fill in");
+    b.onclick=()=>openSheet(f); g.append(b);
+  });
+  $("needcount").textContent=needs?`· ${needs} need attention`:"";
+  save();
+}
+
+function openSheet(f){
+  cur=f; const st=state[f.k];
+  $("sh-title").textContent=f.n; $("sh-hint").textContent=f.h;
+  $("sh-need").hidden=!( !st.v && st.need);
+  $("sh-input").value=st.v; showSugs(st.sugs||f.s);
+  $("sheet").hidden=$("scrim").hidden=false; $("sh-more").hidden=!sample;
+  $("sh-lib").hidden=f.k!=="camera";
+  $("sh-xb").hidden=!SPECS[f.k];
+  if(SPECS[f.k])$("sh-xb").textContent="Open "+f.k.replace("lighting","lighting")+" builder ("+SPECS[f.k].shots.length+" presets with demos)";
+}
+$("sh-lib").onclick=openLib;
+$("sh-xb").onclick=()=>openXB(cur.k);
+$("lib-back").onclick=closeLib;
+$("d-use").onclick=()=>{$("sh-input").value=curMove.p;closeLib()};
+function showSugs(list){
+  const w=$("sh-sugs"); w.innerHTML="";
+  list.slice(0,3).forEach(t=>{const b=document.createElement("button");b.className="sug";b.textContent=t;b.onclick=()=>{$("sh-input").value=t};w.append(b)});
+}
+function closeSheet(){cancelAnimationFrame(raf);cancelAnimationFrame(xraf);$("xb").hidden=true;$("lib").hidden=true;$("sheet").hidden=$("scrim").hidden=true;cur=null}
+$("scrim").onclick=closeSheet;
+$("sh-save").onclick=()=>{state[cur.k].v=$("sh-input").value.trim();closeSheet();render()};
+$("sh-clear").onclick=()=>{$("sh-input").value=""};
+$("sh-more").onclick=async()=>{
+  if(!sample)return; const f=cur,b=$("sh-more"); b.disabled=true;b.textContent="Thinking…";
+  try{
+    const ctx=FIELDS.map(x=>`${x.n}: ${state[x.k].v||"(empty)"}`).join("\n");
+    const r=await sample.json(`You help write prompts for Kling AI video. Scene: "${$("scene").value}"\nCurrent fields:\n${ctx}\nGive 3 fresh, specific, short suggestions for the "${f.n}" field (${f.h}) that fit the scene. Return JSON {"suggestions":["","",""]}.`);
+    if(r&&r.suggestions){state[f.k].sugs=r.suggestions; if(cur===f) showSugs(r.suggestions)}
+  }catch(e){}
+  b.disabled=false;b.textContent="More suggestions";
+};
+
+$("breakdown").onclick=async()=>{
+  const scene=$("scene").value.trim(); if(!scene){$("status").textContent="Type a scene first.";return}
+  if(!sample){$("status").textContent="Add your Gemini key (tap Add AI key at the top) to use scene breakdown. You can still fill each field by hand.";return}
+  const b=$("breakdown"); b.disabled=true; $("status").textContent="Breaking down your scene…";
+  try{
+    const r=await sample.json(`Break this scene description into prompt fields for Kling AI video generation.
+Scene: "${scene}"
+Fields: subject (main focus), action (what it's doing), setting (environment), camera (lens/angle/perspective/movement), lighting (illumination and mood), style (artistic medium/aesthetic).
+For each field: "value" = short phrase taken ONLY from what the scene actually states or clearly implies (empty string "" if the scene gives no direction for it — do not invent). "suggestions" = 3 short, specific options that fit this scene.
+Return JSON: {"subject":{"value":"","suggestions":["","",""]},"action":{...},"setting":{...},"camera":{...},"lighting":{...},"style":{...}}`,{modelTier:"default"});
+    let filled=0;
+    FIELDS.forEach(f=>{const x=r&&r[f.k]; if(!x)return; const v=(x.value||"").trim();
+      state[f.k]={v, sugs:Array.isArray(x.suggestions)?x.suggestions:null, need:!v}; if(v)filled++});
+    const n=6-filled;
+    $("status").textContent=`Filled ${filled} of 6 fields.`+(n?` ${n} need your direction — tap the orange ones.`:"");
+    render();
+  }catch(e){$("status").textContent=e&&e.code==="rate_limited"?"Too many requests — wait a moment and try again.":"Couldn't break that down. Try again or fill the fields by hand."}
+  b.disabled=false;
+};
+
+function template(){
+  const v=k=>state[k].v.replace(/\.$/,"");
+  const lc=s=>s?s[0].toLowerCase()+s.slice(1):s;
+  let first="";
+  const subj=lc(v("subject")), act=lc(v("action")), set=lc(v("setting")), cam=v("camera");
+  const core=[subj,act,set].filter(Boolean).join(" ");
+  if(cam){ const c=lc(cam); first=(/^(a|an|the)\s/i.test(c)?c:(/^[aeiou]/i.test(c)?"an ":"a ")+c)+(core?" of "+core:"") }
+  else first=core;
+  first=first?first[0].toUpperCase()+first.slice(1)+".":"";
+  const tail=[v("lighting"),lc(v("style"))].filter(Boolean).join(", ");
+  return (first+(tail?" "+tail[0].toUpperCase()+tail.slice(1)+".":"")).trim();
+}
+
+$("gen").onclick=async()=>{
+  const missing=FIELDS.filter(f=>!state[f.k].v);
+  if(missing.length===6){$("status").textContent="Fill at least one field first.";return}
+  missing.forEach(f=>state[f.k].need=true); render();
+  let text=template();
+  $("prompt").textContent=text; $("out").hidden=false;
+  if(sample){
+    const b=$("gen"); b.disabled=true; b.textContent="Polishing…";
+    try{
+      const parts=FIELDS.map(f=>`${f.n}: ${state[f.k].v||"(none)"}`).join("\n");
+      const r=await sample(`Write one Kling AI video prompt from these fields. Format exactly like this example, as one flowing paragraph, no quotes, no labels:
+Example fields: Subject: A silver-haired blacksmith / Action: Hammering a glowing sword / Setting: Inside a gritty medieval forge / Camera: Close-up macro shot focusing on the sparks / Lighting: Dramatic firelight, heavy shadows, cinematic atmospheric smoke / Style: Photorealistic, high-detail fantasy illustration
+Example prompt: A close-up macro shot of a silver-haired blacksmith hammering a glowing sword inside a gritty medieval forge. Sparks flying, dramatic firelight, heavy shadows, cinematic atmospheric smoke, photorealistic, high-detail fantasy illustration.
+Rules: start with the camera shot, then subject + action + setting in one sentence; then a second sentence listing visual details, lighting/mood and style comma-separated. Skip fields marked (none). Don't add new ideas beyond small connecting details.
+Fields:
+${parts}
+Return only the prompt.`,{onText:({text})=>{$("prompt").textContent=text}});
+      if(r&&r.text) $("prompt").textContent=r.text.trim().replace(/^"|"$/g,"");
+    }catch(e){$("prompt").textContent=text}
+    b.disabled=false; b.textContent="Generate prompt";
+  }
+  if(missing.length) $("status").textContent=`Prompt made without: ${missing.map(f=>f.n).join(", ")}. Fill them in for a stronger prompt.`;
+};
+
+$("copy").onclick=()=>{
+  const t=$("prompt").textContent;
+  navigator.clipboard.writeText(t).then(()=>{$("copy").textContent="Copied"; setTimeout(()=>$("copy").textContent="Copy",1500)})
+  .catch(()=>{const r=document.createRange();r.selectNodeContents($("prompt"));const s=getSelection();s.removeAllRanges();s.addRange(r)});
+};
+$("reset").onclick=()=>{FIELDS.forEach(f=>state[f.k]={v:"",sugs:null,need:false});$("scene").value="";$("out").hidden=true;$("status").textContent="";render()};
+$("scene").addEventListener("input",save);
+
+render();
+
+/* ===== Gemini adapter (replaces Claude-only AI on the phone app) ===== */
+function getKey(){try{return localStorage.getItem("gemKey")||""}catch(e){return""}}
+function getModel(){try{return localStorage.getItem("gemModel")||"gemini-flash-latest"}catch(e){return"gemini-flash-latest"}}
+async function gemCall(prompt,json){
+  const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+getModel()+":generateContent?key="+encodeURIComponent(getKey()),{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:json?{responseMimeType:"application/json"}:{}})});
+  if(!r.ok){const e=new Error("Gemini error "+r.status);e.code=r.status===429?"rate_limited":"error";throw e}
+  const d=await r.json();return (d.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
+}
+function makeSample(){if(!getKey())return null;const f=async(p,o)=>{const t=await gemCall(typeof p==="string"?p:p.map(m=>m.content).join("\n"));o?.onText?.({text:t});return{text:t}};f.json=async p=>{const t=await gemCall(p,true);return JSON.parse(t.replace(/^```json|```$/g,""))};return f}
+sample=makeSample();
+document.getElementById("aikey").onclick=()=>{const k=prompt("Paste your Gemini API key (stored only on this phone). Leave blank to remove.",getKey());if(k===null)return;try{k.trim()?localStorage.setItem("gemKey",k.trim()):localStorage.removeItem("gemKey")}catch(e){}sample=makeSample();document.getElementById("aikey").textContent=getKey()?"AI key ✓":"Add AI key"};
+document.getElementById("aikey").textContent=getKey()?"AI key ✓":"Add AI key";
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+
+</script>
+
+</body></html>
